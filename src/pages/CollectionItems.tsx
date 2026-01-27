@@ -309,21 +309,12 @@ const CollectionItems: React.FC = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="category">Category *</Label>
-              <Select
+              <Input
+                id="category"
+                placeholder="Enter category"
                 value={formData.category}
-                onValueChange={(value) => setFormData({ ...formData, category: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent className="bg-popover">
-                  {CATEGORIES.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="price">Price *</Label>
