@@ -103,31 +103,35 @@ export const FilterImportExport: React.FC<FilterImportExportProps> = ({
   };
 
   return (
-    <SectionCard title="Filter & Import/Export" subtitle="Manage your sales data">
-      <div className="flex flex-col lg:flex-row lg:items-end gap-4">
-        <div className="flex-1">
-          <Label className="text-sm font-medium text-muted-foreground mb-2 block">
-            Select date range
-          </Label>
+    <SectionCard className="p-0">
+      <div className="p-4">
+        <div className="flex items-center gap-2 mb-4">
+          <FileSpreadsheet className="h-5 w-5 text-foreground" />
+          <h3 className="font-semibold text-foreground">Filter & Import/Export</h3>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Date Range Picker */}
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 className={cn(
-                  'w-full justify-start text-left font-normal',
+                  'w-[200px] justify-start text-left font-normal',
                   !dateRange.from && 'text-muted-foreground'
                 )}
               >
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
                 {dateRange.from ? (
                   dateRange.to ? (
                     <>
-                      {format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}
+                      {format(dateRange.from, 'LLL dd')} - {format(dateRange.to, 'LLL dd')}
                     </>
                   ) : (
                     format(dateRange.from, 'LLL dd, y')
                   )
                 ) : (
-                  <span>Pick a date range</span>
+                  <span>Select date range</span>
                 )}
               </Button>
             </PopoverTrigger>
@@ -143,9 +147,8 @@ export const FilterImportExport: React.FC<FilterImportExportProps> = ({
               />
             </PopoverContent>
           </Popover>
-        </div>
 
-        <div className="flex flex-wrap gap-2">
+          {/* Import Button */}
           <input
             ref={fileInputRef}
             type="file"
@@ -163,7 +166,13 @@ export const FilterImportExport: React.FC<FilterImportExportProps> = ({
             <Upload className="h-4 w-4" />
             {isImporting ? 'Importing...' : 'Import Excel'}
           </Button>
+
+          {/* Upload info text */}
+          <span className="text-sm text-muted-foreground">
+            Upload Excel file (max 10MB)
+          </span>
           
+          {/* Export Button */}
           <Button
             variant="outline"
             onClick={handleExport}
@@ -172,16 +181,8 @@ export const FilterImportExport: React.FC<FilterImportExportProps> = ({
             <Download className="h-4 w-4" />
             Export Excel
           </Button>
-          
-          <Button
-            variant="outline"
-            onClick={generateExcelTemplate}
-            className="gap-2"
-          >
-            <FileSpreadsheet className="h-4 w-4" />
-            Template
-          </Button>
 
+          {/* Clear All Button */}
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
@@ -210,10 +211,6 @@ export const FilterImportExport: React.FC<FilterImportExportProps> = ({
           </AlertDialog>
         </div>
       </div>
-      
-      <p className="text-xs text-muted-foreground mt-3">
-        Upload Excel file (max 10MB). Download template for correct column format.
-      </p>
     </SectionCard>
   );
 };
