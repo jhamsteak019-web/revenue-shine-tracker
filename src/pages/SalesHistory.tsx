@@ -1,5 +1,5 @@
 import React from 'react';
-import { TrendingUp, Package, Building, ShoppingBag, Search, Calendar, Filter, Award } from 'lucide-react';
+import { TrendingUp, Package, Building, ShoppingBag, Search, Calendar, Filter, Award, Trash2 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { SectionCard } from '@/components/sales/SectionCard';
@@ -304,55 +304,158 @@ const SalesHistory: React.FC = () => {
 
           {/* Top Selling Items by Category */}
           {branchCards.length > 0 ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-foreground">
-                <ShoppingBag className="h-5 w-5" />
-                <h2 className="text-lg font-semibold">
-                  Top Selling Items by Category - {formatMonthYear(selectedMonth)}
-                </h2>
-              </div>
+            <>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-foreground">
+                  <ShoppingBag className="h-5 w-5" />
+                  <h2 className="text-lg font-semibold">
+                    Top Selling Items by Category - {formatMonthYear(selectedMonth)}
+                  </h2>
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {branchCards.map((card) => (
-                  <div
-                    key={card.branch}
-                    onClick={() => handleBranchCardClick(card)}
-                    className="bg-card rounded-xl p-5 card-shadow cursor-pointer card-hover animate-fade-in"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <h3 className="text-lg font-bold text-foreground">{card.branch}</h3>
-                      <Badge variant="secondary" className="text-xs">
-                        {card.soldCount.toLocaleString()} sold
-                      </Badge>
-                    </div>
-
-                    <p className="text-lg font-semibold text-muted-foreground mb-4">
-                      {formatCurrency(card.totalAmount)}
-                    </p>
-
-                    {card.topProduct && (
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-6 h-6 rounded-full bg-warning flex items-center justify-center">
-                          <span className="text-warning-foreground text-xs font-bold">1</span>
-                        </div>
-                        <span className="text-sm text-muted-foreground truncate flex-1">
-                          {card.topProduct.name.length > 15 
-                            ? card.topProduct.name.substring(0, 15) + '...' 
-                            : card.topProduct.name}
-                        </span>
-                        <span className="text-sm font-medium text-foreground">
-                          {card.topProduct.qty.toLocaleString()} pcs
-                        </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {branchCards.map((card) => (
+                    <div
+                      key={card.branch}
+                      onClick={() => handleBranchCardClick(card)}
+                      className="bg-card rounded-xl p-5 card-shadow cursor-pointer card-hover animate-fade-in"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <h3 className="text-lg font-bold text-foreground">{card.branch}</h3>
+                        <Badge variant="secondary" className="text-xs">
+                          {card.soldCount.toLocaleString()} sold
+                        </Badge>
                       </div>
-                    )}
 
-                    <p className="text-xs text-muted-foreground">
-                      Click to see store breakdown
-                    </p>
-                  </div>
-                ))}
+                      <p className="text-lg font-semibold text-muted-foreground mb-4">
+                        {formatCurrency(card.totalAmount)}
+                      </p>
+
+                      {card.topProduct && (
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-6 h-6 rounded-full bg-warning flex items-center justify-center">
+                            <span className="text-warning-foreground text-xs font-bold">1</span>
+                          </div>
+                          <span className="text-sm text-muted-foreground truncate flex-1">
+                            {card.topProduct.name.length > 15 
+                              ? card.topProduct.name.substring(0, 15) + '...' 
+                              : card.topProduct.name}
+                          </span>
+                          <span className="text-sm font-medium text-foreground">
+                            {card.topProduct.qty.toLocaleString()} pcs
+                          </span>
+                        </div>
+                      )}
+
+                      <p className="text-xs text-muted-foreground">
+                        Click to see store breakdown
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+
+              {/* Category Summary Table */}
+              <div className="bg-card rounded-xl card-shadow overflow-hidden animate-fade-in">
+                <div className="p-5 border-b border-border">
+                  <h2 className="text-lg font-semibold text-foreground">
+                    Category Summary - {formatMonthYear(selectedMonth)}
+                  </h2>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="table-header border-0">
+                      <TableHead>Category</TableHead>
+                      <TableHead className="text-center">Total Qty</TableHead>
+                      <TableHead className="text-right">Total Sales</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {branchCards.map((card) => (
+                      <TableRow key={card.branch} className="table-row">
+                        <TableCell className="font-medium">{card.branch}</TableCell>
+                        <TableCell className="text-center">{card.soldCount.toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-semibold">{formatCurrency(card.totalAmount)}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="bg-muted/50 font-bold">
+                      <TableCell>TOTAL</TableCell>
+                      <TableCell className="text-center">{totalItemsSold.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(totalSales)}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Sold Items List */}
+              <div className="bg-card rounded-xl card-shadow overflow-hidden animate-fade-in">
+                <div className="p-5 border-b border-border flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <ShoppingBag className="h-5 w-5 text-foreground" />
+                    <h2 className="text-lg font-semibold text-foreground">
+                      Sold Items - {formatMonthYear(selectedMonth)}
+                    </h2>
+                    <Badge variant="secondary">{filteredEntries.length} items</Badge>
+                  </div>
+                  {filteredEntries.length > 0 && (
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => {
+                        if (window.confirm('Are you sure you want to clear all entries?')) {
+                          // This would clear entries - for now just a placeholder
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Clear All
+                    </Button>
+                  )}
+                </div>
+                <div className="max-h-[500px] overflow-auto">
+                  <Table>
+                    <TableBody>
+                      {filteredEntries.map((entry) => (
+                        <TableRow key={entry.id} className="table-row">
+                          <TableCell className="text-sm text-muted-foreground w-[120px]">
+                            {formatDate(entry.date)}
+                          </TableCell>
+                          <TableCell className="text-sm font-medium">{entry.upc || '-'}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="font-medium">
+                              {entry.branch}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm">{entry.name}</TableCell>
+                          <TableCell className="text-center text-sm">{entry.qty}</TableCell>
+                          <TableCell className="text-right text-sm text-muted-foreground">
+                            {formatCurrency(entry.price)}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold text-primary">
+                            {formatCurrency(entry.amount)}
+                          </TableCell>
+                          <TableCell className="w-[50px]">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={() => {
+                                if (window.confirm('Delete this entry?')) {
+                                  // removeEntry would be called here
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </>
           ) : (
             <SectionCard>
               <EmptyState
