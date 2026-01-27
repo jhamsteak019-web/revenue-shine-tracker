@@ -269,20 +269,9 @@ export const AddSalesEntryForm: React.FC<AddSalesEntryFormProps> = ({ onSave }) 
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Branch *</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select branch" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent className="bg-popover">
-                      {BRANCHES.map((branch) => (
-                        <SelectItem key={branch} value={branch}>
-                          {branch}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <Input placeholder="Enter branch" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
