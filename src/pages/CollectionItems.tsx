@@ -41,13 +41,24 @@ interface CollectionItem {
   price: number;
 }
 
+const STORAGE_KEY = 'collection-items';
+
 const CollectionItems: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = React.useState(new Date());
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
-  const [items, setItems] = React.useState<CollectionItem[]>([]);
+  const [items, setItems] = React.useState<CollectionItem[]>(() => {
+    // Load from localStorage on initial render
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) : [];
+  });
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<CollectionItem | null>(null);
+  
+  // Save to localStorage whenever items change
+  React.useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  }, [items]);
   
   // Form state
   const [formData, setFormData] = React.useState({
