@@ -1,13 +1,15 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { FileText, History, Menu, X } from 'lucide-react';
+import { FileText, History, Menu, Wallet, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 const navItems = [
-  { to: '/', label: 'Daily Sales Report', icon: FileText },
+  { to: '/', label: 'DSR', icon: FileText },
   { to: '/history', label: 'Sales History', icon: History },
+  { to: '/collection-history', label: 'Collection History', icon: Wallet },
+  { to: '/collection-items', label: 'Collection Items', icon: Package },
 ];
 
 const NavLinks = ({ onClick }: { onClick?: () => void }) => (
