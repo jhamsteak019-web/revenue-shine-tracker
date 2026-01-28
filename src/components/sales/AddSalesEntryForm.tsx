@@ -30,6 +30,7 @@ const salesEntrySchema = z.object({
   qty: z.number().min(1, 'Quantity must be at least 1'),
   category: z.string().min(1, 'Category is required'),
   price: z.number().min(0, 'Price must be 0 or greater'),
+  amount: z.number().min(0).optional(),
   discountPercent: z.number().min(0).max(100).optional(),
   branch: z.string().min(1, 'Branch is required'),
 });
@@ -51,6 +52,7 @@ export const AddSalesEntryForm: React.FC<AddSalesEntryFormProps> = ({ onSave }) 
       qty: 1,
       category: '',
       price: 0,
+      amount: 0,
       discountPercent: 0,
       branch: '',
     },
@@ -59,10 +61,24 @@ export const AddSalesEntryForm: React.FC<AddSalesEntryFormProps> = ({ onSave }) 
   const watchQty = form.watch('qty');
   const watchPrice = form.watch('price');
   const watchDiscount = form.watch('discountPercent') || 0;
+  const watchAmount = form.watch('amount') || 0;
+
+  // Compute the expected amount based on price, qty, and discount
   const computedAmount = React.useMemo(() => {
     const amount = (watchPrice || 0) * (watchQty || 0) * (1 - (watchDiscount || 0) / 100);
     return Math.round(amount * 100) / 100;
   }, [watchQty, watchPrice, watchDiscount]);
+
+  // When user manually enters an amount, auto-calculate discount
+  const handleAmountChange = (newAmount: number) => {
+    form.setValue('amount', newAmount);
+    const baseAmount = (watchPrice || 0) * (watchQty || 0);
+    if (baseAmount > 0 && newAmount > 0) {
+      const discountPercent = ((baseAmount - newAmount) / baseAmount) * 100;
+      const roundedDiscount = Math.round(Math.max(0, Math.min(100, discountPercent)) * 100) / 100;
+      form.setValue('discountPercent', roundedDiscount);
+    }
+  };
 
   const handleUPCChange = (upc: string) => {
     if (upc.length >= 10) {
@@ -81,6 +97,9 @@ export const AddSalesEntryForm: React.FC<AddSalesEntryFormProps> = ({ onSave }) 
   };
 
   const onSubmit = (data: SalesEntryFormData) => {
+    // Use the manually entered amount if provided, otherwise use computed
+    const finalAmount = (data.amount && data.amount > 0) ? data.amount : computedAmount;
+    
     const entry: SalesEntry = {
       id: `entry-${Date.now()}`,
       date: format(data.date, 'yyyy-MM-dd'),
@@ -91,7 +110,7 @@ export const AddSalesEntryForm: React.FC<AddSalesEntryFormProps> = ({ onSave }) 
       category: data.category,
       price: data.price,
       discountPercent: data.discountPercent || 0,
-      amount: computedAmount,
+      amount: finalAmount,
       branch: data.branch,
       createdAt: new Date().toISOString(),
     };
@@ -105,6 +124,7 @@ export const AddSalesEntryForm: React.FC<AddSalesEntryFormProps> = ({ onSave }) 
       qty: 1,
       category: '',
       price: 0,
+      amount: 0,
       discountPercent: 0,
       branch: '',
     });
@@ -304,9 +324,29 @@ export const AddSalesEntryForm: React.FC<AddSalesEntryFormProps> = ({ onSave }) 
                 )}
               />
 
-              <div className="h-10 flex items-center px-3 rounded-md border border-input bg-muted/50 text-sm font-medium">
-                {computedAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-              </div>
+              <FormField
+                control={form.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        placeholder={computedAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                        {...field}
+                        value={field.value || ''}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          handleAmountChange(val);
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}
@@ -320,7 +360,9 @@ export const AddSalesEntryForm: React.FC<AddSalesEntryFormProps> = ({ onSave }) 
                         max={100}
                         placeholder="Auto"
                         {...field}
-                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        value={field.value || ''}
+                        readOnly
+                        className="bg-muted/50"
                       />
                     </FormControl>
                     <FormMessage />
