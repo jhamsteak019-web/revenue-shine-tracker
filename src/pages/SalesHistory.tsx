@@ -502,7 +502,6 @@ const SalesHistory: React.FC = () => {
               <TableHeader>
                 <TableRow className="table-header border-0">
                   <TableHead className="w-[100px]">DATE</TableHead>
-                  <TableHead>UPC</TableHead>
                   <TableHead>NAME</TableHead>
                   <TableHead>DESCRIPTION</TableHead>
                   <TableHead>CATEGORY</TableHead>
@@ -516,8 +515,7 @@ const SalesHistory: React.FC = () => {
                 {detailDialog.entries.map((entry) => (
                   <TableRow key={entry.id} className="table-row">
                     <TableCell className="text-sm">{formatDate(entry.date)}</TableCell>
-                    <TableCell className="text-sm font-medium">{entry.upc || '-'}</TableCell>
-                    <TableCell className="text-sm">{entry.name}</TableCell>
+                    <TableCell className="text-sm font-medium">{entry.name}</TableCell>
                     <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">
                       {entry.description || '-'}
                     </TableCell>
