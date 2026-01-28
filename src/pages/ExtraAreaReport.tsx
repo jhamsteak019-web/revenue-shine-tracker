@@ -63,6 +63,8 @@ const ExtraAreaReport: React.FC = () => {
   });
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editingEntry, setEditingEntry] = React.useState<ExtraAreaEntry | null>(null);
+  const [photoGalleryOpen, setPhotoGalleryOpen] = React.useState(false);
+  const [selectedEntryPhotos, setSelectedEntryPhotos] = React.useState<ExtraAreaEntry | null>(null);
 
   // Form state
   const [formData, setFormData] = React.useState({
@@ -265,6 +267,11 @@ const ExtraAreaReport: React.FC = () => {
     return entry.photos.approvedBoss.length + entry.photos.loi.length + entry.photos.msas.length;
   };
 
+  const handleViewPhotos = (entry: ExtraAreaEntry) => {
+    setSelectedEntryPhotos(entry);
+    setPhotoGalleryOpen(true);
+  };
+
   return (
     <MainLayout>
       <PageHeader
@@ -367,7 +374,14 @@ const ExtraAreaReport: React.FC = () => {
                           </span>
                         </TableCell>
                         <TableCell className="py-5 px-6">
-                          <div className="flex items-center justify-center gap-1.5">
+                          <button 
+                            type="button"
+                            onClick={() => getTotalPhotos(entry) > 0 && handleViewPhotos(entry)}
+                            className={cn(
+                              "flex items-center justify-center gap-1.5",
+                              getTotalPhotos(entry) > 0 && "cursor-pointer hover:opacity-80 transition-opacity"
+                            )}
+                          >
                             {entry.photos.approvedBoss.slice(0, 2).map((photo, i) => (
                               <img 
                                 key={`boss-${i}`} 
@@ -392,7 +406,7 @@ const ExtraAreaReport: React.FC = () => {
                             {getTotalPhotos(entry) === 0 && (
                               <span className="text-sm text-muted-foreground">—</span>
                             )}
-                          </div>
+                          </button>
                         </TableCell>
                         <TableCell className="py-5 px-6 text-muted-foreground max-w-[180px]">
                           <span className="block truncate" title={entry.remarks || '-'}>
@@ -549,6 +563,127 @@ const ExtraAreaReport: React.FC = () => {
             </Button>
             <Button onClick={handleSave}>
               {editingEntry ? 'Save Changes' : 'Add Report'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Photo Gallery Modal */}
+      <Dialog open={photoGalleryOpen} onOpenChange={setPhotoGalleryOpen}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ImagePlus className="h-5 w-5" />
+              Photos - {selectedEntryPhotos?.branch} ({selectedEntryPhotos?.category})
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedEntryPhotos && (
+            <div className="space-y-6 py-4">
+              {/* Approved Boss Photos */}
+              {selectedEntryPhotos.photos.approvedBoss.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Badge variant="secondary" className="bg-green-100 text-green-700">Approved Boss</Badge>
+                    <span className="text-muted-foreground font-normal">
+                      ({selectedEntryPhotos.photos.approvedBoss.length} photos)
+                    </span>
+                  </h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    {selectedEntryPhotos.photos.approvedBoss.map((photo, index) => (
+                      <div key={index} className="relative group">
+                        <img 
+                          src={photo} 
+                          alt={`Approved Boss ${index + 1}`} 
+                          className="w-full aspect-square object-cover rounded-xl border border-border shadow-sm"
+                        />
+                        <a 
+                          href={photo} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center text-white text-sm font-medium"
+                        >
+                          View Full Size
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* LOI Photos */}
+              {selectedEntryPhotos.photos.loi.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-700">LOI</Badge>
+                    <span className="text-muted-foreground font-normal">
+                      ({selectedEntryPhotos.photos.loi.length} photos)
+                    </span>
+                  </h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    {selectedEntryPhotos.photos.loi.map((photo, index) => (
+                      <div key={index} className="relative group">
+                        <img 
+                          src={photo} 
+                          alt={`LOI ${index + 1}`} 
+                          className="w-full aspect-square object-cover rounded-xl border border-border shadow-sm"
+                        />
+                        <a 
+                          href={photo} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center text-white text-sm font-medium"
+                        >
+                          View Full Size
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* MSAS Photos */}
+              {selectedEntryPhotos.photos.msas.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Badge variant="secondary" className="bg-purple-100 text-purple-700">MSAS</Badge>
+                    <span className="text-muted-foreground font-normal">
+                      ({selectedEntryPhotos.photos.msas.length} photos)
+                    </span>
+                  </h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    {selectedEntryPhotos.photos.msas.map((photo, index) => (
+                      <div key={index} className="relative group">
+                        <img 
+                          src={photo} 
+                          alt={`MSAS ${index + 1}`} 
+                          className="w-full aspect-square object-cover rounded-xl border border-border shadow-sm"
+                        />
+                        <a 
+                          href={photo} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center text-white text-sm font-medium"
+                        >
+                          View Full Size
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {getTotalPhotos(selectedEntryPhotos) === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  No photos uploaded for this entry.
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPhotoGalleryOpen(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
