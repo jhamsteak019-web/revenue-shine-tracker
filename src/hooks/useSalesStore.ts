@@ -1,6 +1,5 @@
 import { SalesEntry } from '@/types/sales';
 import { create } from 'zustand';
-import { mockSalesData } from '@/data/mockData';
 
 interface SalesStore {
   entries: SalesEntry[];
@@ -15,7 +14,7 @@ interface SalesStore {
 }
 
 export const useSalesStore = create<SalesStore>((set, get) => ({
-  entries: mockSalesData,
+  entries: [],
   selectedMonth: new Date(),
   
   setSelectedMonth: (date) => set({ selectedMonth: date }),
