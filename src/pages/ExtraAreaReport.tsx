@@ -1,7 +1,7 @@
 import React from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { SectionCard } from '@/components/sales/SectionCard';
+import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/sales/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -296,67 +296,115 @@ const ExtraAreaReport: React.FC = () => {
             </Button>
           </div>
 
-          {/* Entries Table */}
-          <SectionCard className="p-0 overflow-hidden">
-            <div className="p-4 border-b border-border flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MapPin className="h-5 w-5 text-foreground" />
-                <h3 className="font-semibold text-foreground">
-                  Extra Area Reports
-                </h3>
-                <Badge variant="secondary">{entries.length} entries</Badge>
+          {/* Entries Table - Full Width Expanded Card */}
+          <div className="w-full bg-card rounded-2xl shadow-lg border border-border/50 overflow-hidden">
+            {/* Card Header */}
+            <div className="px-8 py-6 border-b border-border/50 bg-gradient-to-r from-muted/30 to-transparent">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-primary/10 rounded-xl">
+                  <MapPin className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-foreground">
+                    Extra Area Reports
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {entries.length} {entries.length === 1 ? 'entry' : 'entries'} recorded
+                  </p>
+                </div>
               </div>
             </div>
 
             {entries.length > 0 ? (
-              <div className="overflow-auto">
-                <Table>
+              <div className="overflow-x-auto">
+                <Table className="w-full">
                   <TableHeader>
-                    <TableRow className="table-header border-0">
-                      <TableHead>Branch</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Location/Area</TableHead>
-                      <TableHead className="text-right">Rental Rate</TableHead>
-                      <TableHead className="text-center">Fixtures</TableHead>
-                      <TableHead className="text-center">Days</TableHead>
-                      <TableHead className="text-center">Photos</TableHead>
-                      <TableHead>Remarks</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                    <TableRow className="bg-muted/40 border-b border-border/50 hover:bg-muted/40">
+                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground">Branch</TableHead>
+                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground">Category</TableHead>
+                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground min-w-[180px]">Location/Area</TableHead>
+                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right">Rental Rate</TableHead>
+                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground text-center">Fixtures</TableHead>
+                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground text-center">Days</TableHead>
+                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground text-center min-w-[140px]">Photos</TableHead>
+                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground min-w-[160px]">Remarks</TableHead>
+                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {entries.map((entry) => (
-                      <TableRow key={entry.id} className="table-row">
-                        <TableCell className="font-medium">{entry.branch}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{entry.category}</Badge>
+                    {entries.map((entry, index) => (
+                      <TableRow 
+                        key={entry.id} 
+                        className={cn(
+                          "border-b border-border/30 transition-colors hover:bg-muted/30",
+                          index % 2 === 0 ? "bg-background" : "bg-muted/10"
+                        )}
+                      >
+                        <TableCell className="py-5 px-6 font-semibold text-foreground">
+                          {entry.branch}
                         </TableCell>
-                        <TableCell className="max-w-[150px] truncate">{entry.locationArea}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(entry.rentalRate)}</TableCell>
-                        <TableCell className="text-center">{entry.noFixtures}</TableCell>
-                        <TableCell className="text-center">{entry.noDays}</TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-1">
+                        <TableCell className="py-5 px-6">
+                          <Badge variant="secondary" className="px-3 py-1 text-xs font-medium bg-primary/10 text-primary border-0">
+                            {entry.category}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="py-5 px-6 text-foreground/80 max-w-[200px]">
+                          <span className="block truncate" title={entry.locationArea}>
+                            {entry.locationArea}
+                          </span>
+                        </TableCell>
+                        <TableCell className="py-5 px-6 text-right font-semibold text-foreground">
+                          {formatCurrency(entry.rentalRate)}
+                        </TableCell>
+                        <TableCell className="py-5 px-6 text-center">
+                          <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-muted/50 font-semibold text-foreground">
+                            {entry.noFixtures}
+                          </span>
+                        </TableCell>
+                        <TableCell className="py-5 px-6 text-center">
+                          <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-muted/50 font-semibold text-foreground">
+                            {entry.noDays}
+                          </span>
+                        </TableCell>
+                        <TableCell className="py-5 px-6">
+                          <div className="flex items-center justify-center gap-1.5">
                             {entry.photos.approvedBoss.slice(0, 2).map((photo, i) => (
-                              <img key={i} src={photo} alt="" className="w-8 h-8 rounded object-cover" />
+                              <img 
+                                key={`boss-${i}`} 
+                                src={photo} 
+                                alt="" 
+                                className="w-10 h-10 rounded-lg object-cover border-2 border-background shadow-sm" 
+                              />
                             ))}
-                            {getTotalPhotos(entry) > 2 && (
-                              <span className="text-xs text-muted-foreground">+{getTotalPhotos(entry) - 2}</span>
+                            {entry.photos.loi.slice(0, 1).map((photo, i) => (
+                              <img 
+                                key={`loi-${i}`} 
+                                src={photo} 
+                                alt="" 
+                                className="w-10 h-10 rounded-lg object-cover border-2 border-background shadow-sm" 
+                              />
+                            ))}
+                            {getTotalPhotos(entry) > 3 && (
+                              <span className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground">
+                                +{getTotalPhotos(entry) - 3}
+                              </span>
                             )}
                             {getTotalPhotos(entry) === 0 && (
-                              <span className="text-xs text-muted-foreground">-</span>
+                              <span className="text-sm text-muted-foreground">—</span>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="max-w-[150px] truncate text-muted-foreground">
-                          {entry.remarks || '-'}
+                        <TableCell className="py-5 px-6 text-muted-foreground max-w-[180px]">
+                          <span className="block truncate" title={entry.remarks || '-'}>
+                            {entry.remarks || '—'}
+                          </span>
                         </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
+                        <TableCell className="py-5 px-6">
+                          <div className="flex items-center justify-end gap-2">
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              className="h-9 w-9 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
                               onClick={() => handleEdit(entry)}
                             >
                               <Pencil className="h-4 w-4" />
@@ -364,7 +412,7 @@ const ExtraAreaReport: React.FC = () => {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              className="h-9 w-9 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                               onClick={() => handleDelete(entry.id)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -377,14 +425,14 @@ const ExtraAreaReport: React.FC = () => {
                 </Table>
               </div>
             ) : (
-              <div className="p-8">
+              <div className="p-12">
                 <EmptyState
                   title="No Extra Area Reports"
                   description="Click 'Add Report' to create your first extra area report."
                 />
               </div>
             )}
-          </SectionCard>
+          </div>
         </div>
       </div>
 
