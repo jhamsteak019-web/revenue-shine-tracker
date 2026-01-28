@@ -37,14 +37,16 @@ const CollectionHistory: React.FC = () => {
 
   const monthEntries = getEntriesForMonth(selectedMonth);
 
-  // Get unique branches and categories from data
+  // Fixed 4 categories only
+  const ALLOWED_CATEGORIES = ['MHB', 'MLP', 'MSH', 'MUM'] as const;
+
+  // Get unique branches from data
   const uniqueBranches = React.useMemo(() => {
     return [...new Set(monthEntries.map(e => e.branch))].sort();
   }, [monthEntries]);
 
-  const uniqueCategories = React.useMemo(() => {
-    return [...new Set(monthEntries.map(e => e.category))].sort();
-  }, [monthEntries]);
+  // Only show the 4 allowed categories
+  const uniqueCategories = ALLOWED_CATEGORIES;
 
   // Filter entries based on search and filters
   const filteredEntries = React.useMemo(() => {
@@ -63,8 +65,9 @@ const CollectionHistory: React.FC = () => {
   const totalSales = filteredEntries.reduce((sum, e) => sum + e.amount, 0);
   const totalItemsSold = filteredEntries.reduce((sum, e) => sum + e.qty, 0);
 
-  // Category cards data
+  // Category cards data - only show allowed categories
   const categoryCards = React.useMemo(() => {
+    // Initialize all 4 categories with zero values
     const cardMap = new Map<string, {
       category: string;
       totalAmount: number;
@@ -72,23 +75,28 @@ const CollectionHistory: React.FC = () => {
       entries: SalesEntry[];
     }>();
 
+    // Initialize all allowed categories
+    ALLOWED_CATEGORIES.forEach(cat => {
+      cardMap.set(cat, {
+        category: cat,
+        totalAmount: 0,
+        soldCount: 0,
+        entries: [],
+      });
+    });
+
+    // Aggregate entries by category (only if category matches allowed)
     filteredEntries.forEach((entry) => {
-      const existing = cardMap.get(entry.category);
-      if (existing) {
+      if (ALLOWED_CATEGORIES.includes(entry.category as typeof ALLOWED_CATEGORIES[number])) {
+        const existing = cardMap.get(entry.category)!;
         existing.totalAmount += entry.amount;
         existing.soldCount += entry.qty;
         existing.entries.push(entry);
-      } else {
-        cardMap.set(entry.category, {
-          category: entry.category,
-          totalAmount: entry.amount,
-          soldCount: entry.qty,
-          entries: [entry],
-        });
       }
     });
 
-    return Array.from(cardMap.values()).sort((a, b) => b.totalAmount - a.totalAmount);
+    // Return all 4 categories in fixed order
+    return ALLOWED_CATEGORIES.map(cat => cardMap.get(cat)!);
   }, [filteredEntries]);
 
   // Store breakdown for selected category
