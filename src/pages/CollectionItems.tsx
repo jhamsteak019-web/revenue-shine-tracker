@@ -2,8 +2,7 @@ import React from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { SectionCard } from '@/components/sales/SectionCard';
-import { EmptyState } from '@/components/sales/EmptyState';
-import { Package, Search, Trash2, Upload, Download, Plus, Pencil } from 'lucide-react';
+import { Search, Trash2, Upload, Download, Plus, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -31,15 +30,14 @@ import {
 import { Label } from '@/components/ui/label';
 import { formatCurrency } from '@/utils/formatters';
 import { CATEGORIES } from '@/types/sales';
-
-interface CollectionItem {
-  id: string;
-  name: string;
-  upc: string;
-  description: string;
-  category: string;
-  price: number;
-}
+import { toast } from '@/hooks/use-toast';
+import {
+  CollectionItem,
+  getCollectionItems,
+  saveCollectionItems,
+  importCollectionItemsFromExcel,
+  exportCollectionItemsToExcel,
+} from '@/utils/collectionItemsUtils';
 
 const STORAGE_KEY = 'collection-items';
 
@@ -47,17 +45,14 @@ const CollectionItems: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = React.useState(new Date());
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
-  const [items, setItems] = React.useState<CollectionItem[]>(() => {
-    // Load from localStorage on initial render
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [items, setItems] = React.useState<CollectionItem[]>(() => getCollectionItems());
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<CollectionItem | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   
   // Save to localStorage whenever items change
   React.useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    saveCollectionItems(items);
   }, [items]);
   
   // Form state
@@ -150,6 +145,62 @@ const CollectionItems: React.FC = () => {
     return [...new Set(items.map(i => i.category))].sort();
   }, [items]);
 
+  // Handle Excel Import
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const result = await importCollectionItemsFromExcel(file);
+    
+    if (result.success) {
+      // Add imported items (avoiding duplicate UPCs)
+      const existingUPCs = new Set(items.map(item => item.upc));
+      const newItems = result.data.filter(item => !existingUPCs.has(item.upc));
+      const duplicates = result.data.length - newItems.length;
+
+      setItems(prev => [...prev, ...newItems]);
+      
+      toast({
+        title: 'Import successful',
+        description: `${newItems.length} items imported${duplicates > 0 ? `, ${duplicates} duplicates skipped` : ''}.`,
+      });
+
+      if (result.errors.length > 0) {
+        console.warn('Import warnings:', result.errors);
+      }
+    } else {
+      toast({
+        title: 'Import failed',
+        description: result.errors[0] || 'Unknown error',
+        variant: 'destructive',
+      });
+    }
+
+    // Reset file input
+    e.target.value = '';
+  };
+
+  // Handle Excel Export
+  const handleExport = () => {
+    if (items.length === 0) {
+      toast({
+        title: 'No items to export',
+        description: 'Add some items first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    exportCollectionItemsToExcel(items, 'collection-items');
+    toast({
+      title: 'Export successful',
+      description: `${items.length} items exported.`,
+    });
+  };
+
   return (
     <MainLayout>
       <PageHeader
@@ -162,6 +213,15 @@ const CollectionItems: React.FC = () => {
 
       <div id="collection-items-content" className="flex-1 overflow-auto p-4 lg:p-6">
         <div className="max-w-7xl mx-auto space-y-4">
+          {/* Hidden file input for import */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept=".xlsx,.xls"
+            className="hidden"
+          />
+          
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-2">
             <Button 
@@ -174,11 +234,11 @@ const CollectionItems: React.FC = () => {
               <Trash2 className="h-4 w-4" />
               Clear All
             </Button>
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button variant="outline" size="sm" className="gap-2" onClick={handleImportClick}>
               <Upload className="h-4 w-4" />
               Import Excel
             </Button>
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button variant="outline" size="sm" className="gap-2" onClick={handleExport}>
               <Download className="h-4 w-4" />
               Export Excel
             </Button>

@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/form';
 import { SectionCard } from '@/components/sales/SectionCard';
 import { SalesEntry } from '@/types/sales';
-import { findProductByUPC } from '@/data/mockData';
+import { findCollectionItemByUPC } from '@/utils/collectionItemsUtils';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -66,12 +66,12 @@ export const AddSalesEntryForm: React.FC<AddSalesEntryFormProps> = ({ onSave }) 
 
   const handleUPCChange = (upc: string) => {
     if (upc.length >= 10) {
-      const product = findProductByUPC(upc);
+      const product = findCollectionItemByUPC(upc);
       if (product) {
         form.setValue('name', product.name);
         form.setValue('description', product.description);
         form.setValue('category', product.category);
-        form.setValue('price', product.defaultPrice);
+        form.setValue('price', product.price);
         toast({
           title: 'Product found',
           description: `Auto-filled: ${product.name}`,
