@@ -41,6 +41,26 @@ export const FilterImportExport: React.FC<FilterImportExportProps> = ({
 }) => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = React.useState(false);
+  const [importCalendarOpen, setImportCalendarOpen] = React.useState(false);
+
+  const handleImportClick = () => {
+    // Open the calendar popover when Import Excel is clicked
+    setImportCalendarOpen(true);
+  };
+
+  const handleDateSelectAndImport = () => {
+    if (!dateRange.from) {
+      toast({
+        title: 'Please select a date',
+        description: 'Select at least a start date for the import.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setImportCalendarOpen(false);
+    // Trigger file input after date is selected
+    fileInputRef.current?.click();
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -52,19 +72,6 @@ export const FilterImportExport: React.FC<FilterImportExportProps> = ({
         description: 'Maximum file size is 10MB.',
         variant: 'destructive',
       });
-      return;
-    }
-
-    // Check if date range is selected
-    if (!dateRange.from) {
-      toast({
-        title: 'Please select date range first',
-        description: 'Select a date range before importing to set the month/year for entries.',
-        variant: 'destructive',
-      });
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
       return;
     }
 
@@ -164,7 +171,7 @@ export const FilterImportExport: React.FC<FilterImportExportProps> = ({
             </PopoverContent>
           </Popover>
 
-          {/* Import Button */}
+          {/* Import Button with Calendar Popover */}
           <input
             ref={fileInputRef}
             type="file"
@@ -173,15 +180,42 @@ export const FilterImportExport: React.FC<FilterImportExportProps> = ({
             className="hidden"
           />
           
-          <Button
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isImporting}
-            className="gap-2"
-          >
-            <Upload className="h-4 w-4" />
-            {isImporting ? 'Importing...' : 'Import Excel'}
-          </Button>
+          <Popover open={importCalendarOpen} onOpenChange={setImportCalendarOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                onClick={handleImportClick}
+                disabled={isImporting}
+                className="gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                {isImporting ? 'Importing...' : 'Import Excel'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 bg-popover" align="start">
+              <div className="p-3 border-b border-border">
+                <p className="text-sm font-medium text-foreground">Select Month for Import</p>
+                <p className="text-xs text-muted-foreground">The day numbers from Excel will be combined with this month/year.</p>
+              </div>
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={dateRange.from || new Date()}
+                selected={{ from: dateRange.from, to: dateRange.to }}
+                onSelect={(range) => onDateRangeChange({ from: range?.from, to: range?.to })}
+                numberOfMonths={1}
+                className="p-3 pointer-events-auto"
+              />
+              <div className="p-3 border-t border-border flex justify-end gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setImportCalendarOpen(false)}>
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={handleDateSelectAndImport} disabled={!dateRange.from}>
+                  Continue to Import
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
 
           {/* Upload info text */}
           <span className="text-sm text-muted-foreground">
