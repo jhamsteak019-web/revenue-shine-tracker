@@ -55,9 +55,25 @@ export const FilterImportExport: React.FC<FilterImportExportProps> = ({
       return;
     }
 
+    // Check if date range is selected
+    if (!dateRange.from) {
+      toast({
+        title: 'Please select date range first',
+        description: 'Select a date range before importing to set the month/year for entries.',
+        variant: 'destructive',
+      });
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
     setIsImporting(true);
     try {
-      const result = await importFromExcel(file);
+      const result = await importFromExcel(file, {
+        dateRangeFrom: dateRange.from,
+        dateRangeTo: dateRange.to,
+      });
       
       if (result.success && result.data.length > 0) {
         onImport(result.data as SalesEntry[]);
