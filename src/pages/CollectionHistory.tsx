@@ -1,5 +1,5 @@
 import React from 'react';
-import { Package, Search, Calendar, Building, Filter, Award, Trash2, X } from 'lucide-react';
+import { Package, Search, Building, Filter, Award, Trash2 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { SectionCard } from '@/components/sales/SectionCard';
@@ -15,6 +15,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   Table,
   TableBody,
   TableCell,
@@ -27,22 +33,43 @@ import { formatCurrency, formatMonthYear, formatDate } from '@/utils/formatters'
 import { SalesEntry } from '@/types/sales';
 import { cn } from '@/lib/utils';
 
+// Fixed 4 categories only
+const ALLOWED_CATEGORIES = ['MHB', 'MLP', 'MSH', 'MUM'] as const;
+
+interface CategoryBreakdownDialog {
+  open: boolean;
+  category: string;
+  branches: {
+    branch: string;
+    totalAmount: number;
+    totalQty: number;
+    avgPrice: number;
+    avgDiscount: number;
+    entries: SalesEntry[];
+  }[];
+  overallTotal: number;
+  overallQty: number;
+}
+
 const CollectionHistory: React.FC = () => {
   const { selectedMonth, setSelectedMonth, getEntriesForMonth, removeEntry, clearAllEntries } = useSalesStore();
   
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedBranch, setSelectedBranch] = React.useState<string>('all');
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
-  const [expandedCategory, setExpandedCategory] = React.useState<string | null>(null);
+  const [categoryDialog, setCategoryDialog] = React.useState<CategoryBreakdownDialog>({
+    open: false,
+    category: '',
+    branches: [],
+    overallTotal: 0,
+    overallQty: 0,
+  });
 
   const monthEntries = getEntriesForMonth(selectedMonth);
 
-  // Fixed 4 categories only
-  const ALLOWED_CATEGORIES = ['MHB', 'MLP', 'MSH', 'MUM'] as const;
-
   // Get unique branches from data
   const uniqueBranches = React.useMemo(() => {
-    return [...new Set(monthEntries.map(e => e.branch))].sort();
+    return [...new Set(monthEntries.map(e => e.branch))].filter(b => b && b.trim() !== '').sort();
   }, [monthEntries]);
 
   // Only show the 4 allowed categories
@@ -51,7 +78,6 @@ const CollectionHistory: React.FC = () => {
   // Filter entries based on search and filters - ONLY show allowed categories
   const filteredEntries = React.useMemo(() => {
     return monthEntries.filter((entry) => {
-      // First, check if category is in allowed list
       const isAllowedCategory = ALLOWED_CATEGORIES.includes(entry.category as typeof ALLOWED_CATEGORIES[number]);
       if (!isAllowedCategory) return false;
       
@@ -65,17 +91,23 @@ const CollectionHistory: React.FC = () => {
     });
   }, [monthEntries, searchQuery, selectedBranch, selectedCategory]);
 
+  // Sort entries by amount (highest to lowest)
+  const sortedEntries = React.useMemo(() => {
+    return [...filteredEntries].sort((a, b) => b.amount - a.amount);
+  }, [filteredEntries]);
+
   // Calculate totals
   const totalSales = filteredEntries.reduce((sum, e) => sum + e.amount, 0);
   const totalItemsSold = filteredEntries.reduce((sum, e) => sum + e.qty, 0);
 
   // Category cards data - only show allowed categories
   const categoryCards = React.useMemo(() => {
-    // Initialize all 4 categories with zero values
     const cardMap = new Map<string, {
       category: string;
       totalAmount: number;
       soldCount: number;
+      totalPrice: number;
+      totalDiscount: number;
       entries: SalesEntry[];
     }>();
 
@@ -85,49 +117,81 @@ const CollectionHistory: React.FC = () => {
         category: cat,
         totalAmount: 0,
         soldCount: 0,
+        totalPrice: 0,
+        totalDiscount: 0,
         entries: [],
       });
     });
 
-    // Aggregate entries by category (only if category matches allowed)
+    // Aggregate entries by category
     filteredEntries.forEach((entry) => {
       if (ALLOWED_CATEGORIES.includes(entry.category as typeof ALLOWED_CATEGORIES[number])) {
         const existing = cardMap.get(entry.category)!;
         existing.totalAmount += entry.amount;
         existing.soldCount += entry.qty;
+        existing.totalPrice += entry.price * entry.qty;
+        existing.totalDiscount += entry.discountPercent;
         existing.entries.push(entry);
       }
     });
 
-    // Return all 4 categories in fixed order
     return ALLOWED_CATEGORIES.map(cat => cardMap.get(cat)!);
   }, [filteredEntries]);
 
-  // Store breakdown for selected category
-  const storeBreakdown = React.useMemo(() => {
-    if (!expandedCategory) return [];
-    
-    const categoryEntries = filteredEntries.filter(e => e.category === expandedCategory);
-    const storeMap = new Map<string, { store: string; itemsSold: number; totalQty: number; totalAmount: number }>();
-    
-    categoryEntries.forEach((entry) => {
-      const existing = storeMap.get(entry.branch);
+  // Handle category card click - show branch breakdown sorted by highest amount
+  const handleCategoryCardClick = (categoryData: typeof categoryCards[0]) => {
+    const branchMap = new Map<string, {
+      branch: string;
+      totalAmount: number;
+      totalQty: number;
+      totalPrice: number;
+      totalDiscount: number;
+      entryCount: number;
+      entries: SalesEntry[];
+    }>();
+
+    categoryData.entries.forEach((entry) => {
+      const existing = branchMap.get(entry.branch);
       if (existing) {
-        existing.itemsSold += 1;
-        existing.totalQty += entry.qty;
         existing.totalAmount += entry.amount;
+        existing.totalQty += entry.qty;
+        existing.totalPrice += entry.price * entry.qty;
+        existing.totalDiscount += entry.discountPercent;
+        existing.entryCount += 1;
+        existing.entries.push(entry);
       } else {
-        storeMap.set(entry.branch, {
-          store: entry.branch,
-          itemsSold: 1,
-          totalQty: entry.qty,
+        branchMap.set(entry.branch, {
+          branch: entry.branch,
           totalAmount: entry.amount,
+          totalQty: entry.qty,
+          totalPrice: entry.price * entry.qty,
+          totalDiscount: entry.discountPercent,
+          entryCount: 1,
+          entries: [entry],
         });
       }
     });
 
-    return Array.from(storeMap.values()).sort((a, b) => b.totalAmount - a.totalAmount);
-  }, [filteredEntries, expandedCategory]);
+    // Sort by highest amount and calculate averages
+    const branches = Array.from(branchMap.values())
+      .map(b => ({
+        branch: b.branch,
+        totalAmount: b.totalAmount,
+        totalQty: b.totalQty,
+        avgPrice: b.totalPrice / b.totalQty,
+        avgDiscount: b.totalDiscount / b.entryCount,
+        entries: b.entries.sort((a, c) => c.amount - a.amount),
+      }))
+      .sort((a, b) => b.totalAmount - a.totalAmount);
+
+    setCategoryDialog({
+      open: true,
+      category: categoryData.category,
+      branches,
+      overallTotal: categoryData.totalAmount,
+      overallQty: categoryData.soldCount,
+    });
+  };
 
   const handleClearAll = () => {
     if (window.confirm('Are you sure you want to clear all entries?')) {
@@ -161,7 +225,7 @@ const CollectionHistory: React.FC = () => {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search by name, UPC..."
+                    placeholder="Search by code, name..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10"
@@ -169,13 +233,8 @@ const CollectionHistory: React.FC = () => {
                 </div>
               </div>
 
-              <Button variant="outline" className="gap-2">
-                <Calendar className="h-4 w-4" />
-                Filter by date
-              </Button>
-
               <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                <SelectTrigger className="w-full lg:w-[160px]">
+                <SelectTrigger className="w-full lg:w-[180px]">
                   <Building className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="All Branches" />
                 </SelectTrigger>
@@ -208,102 +267,62 @@ const CollectionHistory: React.FC = () => {
 
           {categoryCards.length > 0 ? (
             <>
-              {/* Top Selling Items by Category */}
+              {/* Category Cards - MHB, MLP, MSH, MUM */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-foreground">
                   <Package className="h-5 w-5" />
                   <h2 className="text-lg font-semibold">
-                    Top Selling Items by Category - {formatMonthYear(selectedMonth)}
+                    Collections by Category - {formatMonthYear(selectedMonth)}
                   </h2>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {categoryCards.map((card) => (
-                    <div
-                      key={card.category}
-                      onClick={() => setExpandedCategory(expandedCategory === card.category ? null : card.category)}
-                      className={cn(
-                        "bg-card rounded-xl p-5 card-shadow cursor-pointer card-hover animate-fade-in",
-                        expandedCategory === card.category && "ring-2 ring-primary"
-                      )}
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <h3 className="text-lg font-bold text-foreground">{card.category}</h3>
-                        <Badge variant="secondary" className="text-xs">
-                          {card.soldCount} sold
-                        </Badge>
-                      </div>
-
-                      <p className="text-lg font-semibold text-muted-foreground mb-4">
-                        {formatCurrency(card.totalAmount)}
-                      </p>
-
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-6 h-6 rounded-full bg-warning flex items-center justify-center">
-                          <span className="text-warning-foreground text-xs font-bold">1</span>
+                  {categoryCards.map((card) => {
+                    const avgPrice = card.soldCount > 0 ? card.totalPrice / card.soldCount : 0;
+                    const avgDiscount = card.entries.length > 0 
+                      ? card.totalDiscount / card.entries.length 
+                      : 0;
+                    
+                    return (
+                      <div
+                        key={card.category}
+                        onClick={() => handleCategoryCardClick(card)}
+                        className="bg-card rounded-xl p-5 card-shadow cursor-pointer card-hover animate-fade-in"
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <h3 className="text-lg font-bold text-foreground">{card.category}</h3>
+                          <Badge variant="secondary" className="text-xs">
+                            {card.soldCount} sold
+                          </Badge>
                         </div>
-                        <span className="text-sm font-medium text-foreground">
-                          {card.soldCount} pcs
-                        </span>
-                      </div>
 
-                      <p className="text-xs text-muted-foreground">
-                        Click to see store breakdown
-                      </p>
-                    </div>
-                  ))}
+                        <p className="text-xl font-bold text-primary mb-3">
+                          {formatCurrency(card.totalAmount)}
+                        </p>
+
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Avg Price:</span>
+                            <span className="font-medium">{formatCurrency(avgPrice)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Avg Discount:</span>
+                            <span className="font-medium">{avgDiscount.toFixed(1)}%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Qty:</span>
+                            <span className="font-medium">{card.soldCount} pcs</span>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-muted-foreground mt-3">
+                          Click to see branch breakdown
+                        </p>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-
-              {/* Store Breakdown (shown when category is selected) */}
-              {expandedCategory && storeBreakdown.length > 0 && (
-                <div className="bg-card rounded-xl card-shadow overflow-hidden animate-fade-in">
-                  <div className="p-5 border-b border-border flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Building className="h-5 w-5 text-foreground" />
-                      <h2 className="text-lg font-semibold text-foreground">
-                        Store Breakdown - {expandedCategory}
-                      </h2>
-                    </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => setExpandedCategory(null)}
-                    >
-                      Close
-                    </Button>
-                  </div>
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="table-header border-0">
-                        <TableHead>Store</TableHead>
-                        <TableHead className="text-center">Items Sold</TableHead>
-                        <TableHead className="text-center">Total Qty</TableHead>
-                        <TableHead className="text-right">Total Amount</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {storeBreakdown.map((store, index) => (
-                        <TableRow key={store.store} className="table-row">
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
-                              {index === 0 && (
-                                <Award className="h-4 w-4 text-warning" />
-                              )}
-                              {store.store}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center">{store.itemsSold}</TableCell>
-                          <TableCell className="text-center">{store.totalQty}</TableCell>
-                          <TableCell className="text-right font-semibold text-primary">
-                            {formatCurrency(store.totalAmount)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
 
               {/* Category Summary Table */}
               <div className="bg-card rounded-xl card-shadow overflow-hidden animate-fade-in">
@@ -337,7 +356,7 @@ const CollectionHistory: React.FC = () => {
                 </Table>
               </div>
 
-              {/* Sold Items List */}
+              {/* Sold Items List - Sorted by highest amount */}
               <div className="bg-card rounded-xl card-shadow overflow-hidden animate-fade-in">
                 <div className="p-5 border-b border-border flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -345,9 +364,10 @@ const CollectionHistory: React.FC = () => {
                     <h2 className="text-lg font-semibold text-foreground">
                       Sold Items - {formatMonthYear(selectedMonth)}
                     </h2>
-                    <Badge variant="secondary">{filteredEntries.length} items</Badge>
+                    <Badge variant="secondary">{sortedEntries.length} items</Badge>
+                    <Badge variant="outline" className="text-xs">Highest to Lowest</Badge>
                   </div>
-                  {filteredEntries.length > 0 && (
+                  {sortedEntries.length > 0 && (
                     <Button 
                       variant="destructive" 
                       size="sm"
@@ -363,6 +383,7 @@ const CollectionHistory: React.FC = () => {
                   <Table>
                     <TableHeader>
                       <TableRow className="table-header border-0">
+                        <TableHead className="w-[50px]">#</TableHead>
                         <TableHead>Date</TableHead>
                         <TableHead>Code</TableHead>
                         <TableHead>Name</TableHead>
@@ -370,13 +391,23 @@ const CollectionHistory: React.FC = () => {
                         <TableHead>Branch</TableHead>
                         <TableHead className="text-center">Qty</TableHead>
                         <TableHead className="text-right">Price</TableHead>
+                        <TableHead className="text-center">Discount %</TableHead>
                         <TableHead className="text-right">Amount</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredEntries.map((entry) => (
+                      {sortedEntries.map((entry, index) => (
                         <TableRow key={entry.id} className="table-row">
+                          <TableCell>
+                            {index === 0 ? (
+                              <div className="w-6 h-6 rounded-full bg-warning flex items-center justify-center">
+                                <span className="text-warning-foreground text-xs font-bold">1</span>
+                              </div>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">{index + 1}</span>
+                            )}
+                          </TableCell>
                           <TableCell className="text-sm">
                             {formatDate(entry.date)}
                           </TableCell>
@@ -393,8 +424,11 @@ const CollectionHistory: React.FC = () => {
                           </TableCell>
                           <TableCell className="text-sm">{entry.branch}</TableCell>
                           <TableCell className="text-center text-sm">{entry.qty}</TableCell>
-                          <TableCell className="text-right text-sm text-muted-foreground">
+                          <TableCell className="text-right text-sm">
                             {formatCurrency(entry.price)}
+                          </TableCell>
+                          <TableCell className="text-center text-sm">
+                            {entry.discountPercent}%
                           </TableCell>
                           <TableCell className="text-right font-semibold text-primary">
                             {formatCurrency(entry.amount)}
@@ -426,6 +460,121 @@ const CollectionHistory: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Category Branch Breakdown Dialog */}
+      <Dialog
+        open={categoryDialog.open}
+        onOpenChange={(open) => setCategoryDialog((prev) => ({ ...prev, open }))}
+      >
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Package className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <DialogTitle className="text-xl">{categoryDialog.category} - Branch Breakdown</DialogTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {categoryDialog.branches.length} branches • Sorted by highest sales
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1.5 rounded-full">
+                <Award className="h-4 w-4" />
+                <span className="text-sm font-medium">
+                  {formatCurrency(categoryDialog.overallTotal)}
+                </span>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-auto mt-4 space-y-4">
+            {categoryDialog.branches.map((branchData, index) => (
+              <div key={branchData.branch} className="bg-muted/30 rounded-xl overflow-hidden">
+                <div className="p-4 flex items-center justify-between bg-muted/50">
+                  <div className="flex items-center gap-3">
+                    {index === 0 && (
+                      <div className="w-6 h-6 rounded-full bg-warning flex items-center justify-center">
+                        <span className="text-warning-foreground text-xs font-bold">1</span>
+                      </div>
+                    )}
+                    {index > 0 && (
+                      <span className="w-6 text-center text-sm text-muted-foreground font-medium">{index + 1}</span>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <Building className="h-4 w-4 text-muted-foreground" />
+                      <h4 className="font-semibold text-foreground">{branchData.branch}</h4>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-6 text-sm">
+                    <div className="text-center">
+                      <p className="text-muted-foreground">Qty</p>
+                      <p className="font-semibold">{branchData.totalQty}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-muted-foreground">Avg Price</p>
+                      <p className="font-semibold">{formatCurrency(branchData.avgPrice)}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-muted-foreground">Avg Discount</p>
+                      <p className="font-semibold">{branchData.avgDiscount.toFixed(1)}%</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-muted-foreground">Total</p>
+                      <p className="font-bold text-primary">{formatCurrency(branchData.totalAmount)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Branch's sold items */}
+                <Table>
+                  <TableHeader>
+                    <TableRow className="table-header border-0">
+                      <TableHead>Date</TableHead>
+                      <TableHead>Code</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead className="text-center">Qty</TableHead>
+                      <TableHead className="text-right">Price</TableHead>
+                      <TableHead className="text-center">Discount %</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {branchData.entries.map((entry) => (
+                      <TableRow key={entry.id} className="table-row">
+                        <TableCell className="text-sm">{formatDate(entry.date)}</TableCell>
+                        <TableCell className="text-sm font-medium">{entry.name}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">
+                          {entry.description || '-'}
+                        </TableCell>
+                        <TableCell className="text-center">{entry.qty}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(entry.price)}</TableCell>
+                        <TableCell className="text-center">{entry.discountPercent}%</TableCell>
+                        <TableCell className="text-right font-semibold text-primary">
+                          {formatCurrency(entry.amount)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex-shrink-0 pt-4 border-t border-border">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                {categoryDialog.branches.length} branches with {categoryDialog.category} sales
+              </p>
+              <div className="text-right">
+                <p className="text-lg font-bold text-primary">Overall Total: {formatCurrency(categoryDialog.overallTotal)}</p>
+                <p className="text-sm text-muted-foreground">{categoryDialog.overallQty} total items sold</p>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 };
