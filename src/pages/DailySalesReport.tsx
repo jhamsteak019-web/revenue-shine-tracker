@@ -2,12 +2,10 @@ import React from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { FilterImportExport } from '@/components/sales/FilterImportExport';
-import { AddSalesEntryForm } from '@/components/sales/AddSalesEntryForm';
 import { SalesEntryTable } from '@/components/sales/SalesEntryTable';
 import { useSalesStore } from '@/hooks/useSalesStore';
 import { SalesEntry, DateRange } from '@/types/sales';
 import { toast } from '@/hooks/use-toast';
-
 const DailySalesReport: React.FC = () => {
   const { 
     entries, 
@@ -38,14 +36,9 @@ const DailySalesReport: React.FC = () => {
     return filtered;
   }, [getEntriesForMonth, selectedMonth, dateRange]);
 
-  const handleSaveEntry = (entry: SalesEntry) => {
-    addEntry(entry);
-  };
-
   const handleImport = (importedEntries: SalesEntry[]) => {
     addEntries(importedEntries);
   };
-
   const handleDelete = (id: string) => {
     removeEntry(id);
     toast({
@@ -82,8 +75,6 @@ const DailySalesReport: React.FC = () => {
             onImport={handleImport}
             onClearAll={handleClearAll}
           />
-          
-          <AddSalesEntryForm onSave={handleSaveEntry} />
           
           <SalesEntryTable
             entries={monthEntries}
