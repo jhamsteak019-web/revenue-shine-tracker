@@ -50,23 +50,28 @@ export interface ImportOptions {
   dateRangeTo?: Date;
 }
 
-// Extract category from product name prefix (e.g., MCLSH -> MCL, MHB -> MHB)
+// Allowed categories only: MHB, MLP, MSH, MUM
+const ALLOWED_CATEGORIES = ['MHB', 'MLP', 'MSH', 'MUM'];
+
+// Extract category from product name prefix - only return allowed categories
 const extractCategoryFromProduct = (productName: string): string => {
   if (!productName) return '';
   
-  // Common prefixes: MHB, MSH, MLX, MCL, MCX, MXD, etc.
   const upperProduct = productName.toUpperCase();
   
+  // Only return allowed categories
   if (upperProduct.startsWith('MHB')) return 'MHB';
   if (upperProduct.startsWith('MSH')) return 'MSH';
   if (upperProduct.startsWith('MUM')) return 'MUM';
   if (upperProduct.startsWith('MLP') || upperProduct.startsWith('MLX')) return 'MLP';
-  if (upperProduct.startsWith('MCL')) return 'MCL';
-  if (upperProduct.startsWith('MCX')) return 'MCX';
-  if (upperProduct.startsWith('MXD')) return 'MXD';
   
-  // Fallback: take first 3 characters
-  return upperProduct.substring(0, 3);
+  // For non-matching prefixes, try to find any allowed category in the product name
+  for (const cat of ALLOWED_CATEGORIES) {
+    if (upperProduct.includes(cat)) return cat;
+  }
+  
+  // Default to empty - user will need to categorize manually or it won't show in Collection History
+  return '';
 };
 
 export const importFromExcel = (file: File, options?: ImportOptions): Promise<ImportResult> => {

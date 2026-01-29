@@ -48,9 +48,13 @@ const CollectionHistory: React.FC = () => {
   // Only show the 4 allowed categories
   const uniqueCategories = ALLOWED_CATEGORIES;
 
-  // Filter entries based on search and filters
+  // Filter entries based on search and filters - ONLY show allowed categories
   const filteredEntries = React.useMemo(() => {
     return monthEntries.filter((entry) => {
+      // First, check if category is in allowed list
+      const isAllowedCategory = ALLOWED_CATEGORIES.includes(entry.category as typeof ALLOWED_CATEGORIES[number]);
+      if (!isAllowedCategory) return false;
+      
       const matchesSearch =
         !searchQuery ||
         entry.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
