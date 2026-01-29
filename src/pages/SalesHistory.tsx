@@ -55,7 +55,7 @@ const SalesHistory: React.FC = () => {
   }, [monthEntries]);
 
   const uniqueCategories = React.useMemo(() => {
-    return [...new Set(monthEntries.map(e => e.category))].sort();
+    return [...new Set(monthEntries.map(e => e.category))].filter(c => c && c.trim() !== '').sort();
   }, [monthEntries]);
 
   // Filter entries based on search and filters
