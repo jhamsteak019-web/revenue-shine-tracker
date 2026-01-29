@@ -33,34 +33,50 @@ import { formatCurrency, formatMonthYear, formatDate } from '@/utils/formatters'
 import { SalesEntry } from '@/types/sales';
 import { cn } from '@/lib/utils';
 
+// Fixed 4 categories only
+const ALLOWED_CATEGORIES = ['MHB', 'MLP', 'MSH', 'MUM'] as const;
+
+interface CategoryBreakdownDialog {
+  open: boolean;
+  category: string;
+  branches: {
+    branch: string;
+    totalAmount: number;
+    totalQty: number;
+    dailyBreakdown: { date: string; amount: number; qty: number }[];
+    entries: SalesEntry[];
+  }[];
+  overallTotal: number;
+  overallQty: number;
+}
+
 const SalesHistory: React.FC = () => {
   const { selectedMonth, setSelectedMonth, getEntriesForMonth } = useSalesStore();
   
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedBranch, setSelectedBranch] = React.useState<string>('all');
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
-  const [detailDialog, setDetailDialog] = React.useState<{
-    open: boolean;
-    branch: string;
-    entries: SalesEntry[];
-    totalAmount: number;
-    topCategory: { name: string; amount: number } | null;
-  }>({ open: false, branch: '', entries: [], totalAmount: 0, topCategory: null });
+  const [categoryDialog, setCategoryDialog] = React.useState<CategoryBreakdownDialog>({
+    open: false,
+    category: '',
+    branches: [],
+    overallTotal: 0,
+    overallQty: 0,
+  });
 
   const monthEntries = getEntriesForMonth(selectedMonth);
 
-  // Get unique branches and categories from data
+  // Get unique branches from data
   const uniqueBranches = React.useMemo(() => {
-    return [...new Set(monthEntries.map(e => e.branch))].sort();
+    return [...new Set(monthEntries.map(e => e.branch))].filter(b => b && b.trim() !== '').sort();
   }, [monthEntries]);
 
-  const uniqueCategories = React.useMemo(() => {
-    return [...new Set(monthEntries.map(e => e.category))].filter(c => c && c.trim() !== '').sort();
-  }, [monthEntries]);
-
-  // Filter entries based on search and filters
+  // Filter entries based on search and filters - only allowed categories
   const filteredEntries = React.useMemo(() => {
     return monthEntries.filter((entry) => {
+      const isAllowedCategory = ALLOWED_CATEGORIES.includes(entry.category as typeof ALLOWED_CATEGORIES[number]);
+      if (!isAllowedCategory) return false;
+      
       const matchesSearch =
         !searchQuery ||
         entry.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -88,70 +104,97 @@ const SalesHistory: React.FC = () => {
       .sort((a, b) => b.totalSales - a.totalSales);
   }, [filteredEntries]);
 
-  // Branch cards with top product
-  const branchCards = React.useMemo(() => {
+  // Category cards data - only show allowed categories
+  const categoryCards = React.useMemo(() => {
     const cardMap = new Map<string, {
-      branch: string;
+      category: string;
       totalAmount: number;
       soldCount: number;
-      topProduct: { name: string; qty: number } | null;
       entries: SalesEntry[];
     }>();
 
+    // Initialize all allowed categories
+    ALLOWED_CATEGORIES.forEach(cat => {
+      cardMap.set(cat, {
+        category: cat,
+        totalAmount: 0,
+        soldCount: 0,
+        entries: [],
+      });
+    });
+
+    // Aggregate entries by category
     filteredEntries.forEach((entry) => {
-      const existing = cardMap.get(entry.branch);
-      if (existing) {
+      if (ALLOWED_CATEGORIES.includes(entry.category as typeof ALLOWED_CATEGORIES[number])) {
+        const existing = cardMap.get(entry.category)!;
         existing.totalAmount += entry.amount;
         existing.soldCount += entry.qty;
         existing.entries.push(entry);
+      }
+    });
+
+    return ALLOWED_CATEGORIES.map(cat => cardMap.get(cat)!);
+  }, [filteredEntries]);
+
+  // Handle category card click - show branch breakdown with daily sales
+  const handleCategoryCardClick = (categoryData: typeof categoryCards[0]) => {
+    const branchMap = new Map<string, {
+      branch: string;
+      totalAmount: number;
+      totalQty: number;
+      dailyBreakdown: Map<string, { date: string; amount: number; qty: number }>;
+      entries: SalesEntry[];
+    }>();
+
+    categoryData.entries.forEach((entry) => {
+      const existing = branchMap.get(entry.branch);
+      if (existing) {
+        existing.totalAmount += entry.amount;
+        existing.totalQty += entry.qty;
+        existing.entries.push(entry);
+        
+        // Daily breakdown
+        const dailyEntry = existing.dailyBreakdown.get(entry.date);
+        if (dailyEntry) {
+          dailyEntry.amount += entry.amount;
+          dailyEntry.qty += entry.qty;
+        } else {
+          existing.dailyBreakdown.set(entry.date, {
+            date: entry.date,
+            amount: entry.amount,
+            qty: entry.qty,
+          });
+        }
       } else {
-        cardMap.set(entry.branch, {
+        const dailyBreakdown = new Map<string, { date: string; amount: number; qty: number }>();
+        dailyBreakdown.set(entry.date, {
+          date: entry.date,
+          amount: entry.amount,
+          qty: entry.qty,
+        });
+        branchMap.set(entry.branch, {
           branch: entry.branch,
           totalAmount: entry.amount,
-          soldCount: entry.qty,
-          topProduct: null,
+          totalQty: entry.qty,
+          dailyBreakdown,
           entries: [entry],
         });
       }
     });
 
-    // Calculate top product for each branch
-    cardMap.forEach((data) => {
-      const productQty = new Map<string, number>();
-      data.entries.forEach((e) => {
-        productQty.set(e.name, (productQty.get(e.name) || 0) + e.qty);
-      });
-      let topProduct: { name: string; qty: number } | null = null;
-      productQty.forEach((qty, name) => {
-        if (!topProduct || qty > topProduct.qty) {
-          topProduct = { name, qty };
-        }
-      });
-      data.topProduct = topProduct;
-    });
+    const branches = Array.from(branchMap.values())
+      .map(b => ({
+        ...b,
+        dailyBreakdown: Array.from(b.dailyBreakdown.values()).sort((a, b) => a.date.localeCompare(b.date)),
+      }))
+      .sort((a, b) => b.totalAmount - a.totalAmount);
 
-    return Array.from(cardMap.values()).sort((a, b) => b.totalAmount - a.totalAmount);
-  }, [filteredEntries]);
-
-  const handleBranchCardClick = (branchData: typeof branchCards[0]) => {
-    // Calculate top category for this branch
-    const categoryAmounts = new Map<string, number>();
-    branchData.entries.forEach((e) => {
-      categoryAmounts.set(e.category, (categoryAmounts.get(e.category) || 0) + e.amount);
-    });
-    let topCategory: { name: string; amount: number } | null = null;
-    categoryAmounts.forEach((amount, name) => {
-      if (!topCategory || amount > topCategory.amount) {
-        topCategory = { name, amount };
-      }
-    });
-
-    setDetailDialog({
+    setCategoryDialog({
       open: true,
-      branch: branchData.branch,
-      entries: branchData.entries,
-      totalAmount: branchData.totalAmount,
-      topCategory,
+      category: categoryData.category,
+      branches,
+      overallTotal: categoryData.totalAmount,
+      overallQty: categoryData.soldCount,
     });
   };
 
@@ -159,7 +202,7 @@ const SalesHistory: React.FC = () => {
     <MainLayout>
       <PageHeader
         title="Sales History"
-        subtitle="View all sold items by branch"
+        subtitle="View all sold items by category and branch"
         entryCount={filteredEntries.length}
         selectedMonth={selectedMonth}
         onMonthChange={setSelectedMonth}
@@ -265,13 +308,8 @@ const SalesHistory: React.FC = () => {
                 </div>
               </div>
 
-              <Button variant="outline" className="gap-2">
-                <Calendar className="h-4 w-4" />
-                Filter by date
-              </Button>
-
               <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                <SelectTrigger className="w-full lg:w-[160px]">
+                <SelectTrigger className="w-full lg:w-[180px]">
                   <Building className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="All Branches" />
                 </SelectTrigger>
@@ -292,7 +330,7 @@ const SalesHistory: React.FC = () => {
                 </SelectTrigger>
                 <SelectContent className="bg-popover">
                   <SelectItem value="all">All</SelectItem>
-                  {uniqueCategories.map((category) => (
+                  {ALLOWED_CATEGORIES.map((category) => (
                     <SelectItem key={category} value={category}>
                       {category}
                     </SelectItem>
@@ -302,240 +340,226 @@ const SalesHistory: React.FC = () => {
             </div>
           </div>
 
-          {/* Top Selling Items by Category */}
-          {branchCards.length > 0 ? (
-            <>
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-foreground">
-                  <ShoppingBag className="h-5 w-5" />
-                  <h2 className="text-lg font-semibold">
-                    Top Selling Items by Category - {formatMonthYear(selectedMonth)}
-                  </h2>
-                </div>
+          {/* Category Cards - MHB, MLP, MSH, MUM */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-foreground">
+              <Package className="h-5 w-5" />
+              <h2 className="text-lg font-semibold">
+                Sales by Category - {formatMonthYear(selectedMonth)}
+              </h2>
+            </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {branchCards.map((card) => (
-                    <div
-                      key={card.branch}
-                      onClick={() => handleBranchCardClick(card)}
-                      className="bg-card rounded-xl p-5 card-shadow cursor-pointer card-hover animate-fade-in"
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <h3 className="text-lg font-bold text-foreground">{card.branch}</h3>
-                        <Badge variant="secondary" className="text-xs">
-                          {card.soldCount.toLocaleString()} sold
-                        </Badge>
-                      </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {categoryCards.map((card) => (
+                <div
+                  key={card.category}
+                  onClick={() => handleCategoryCardClick(card)}
+                  className="bg-card rounded-xl p-5 card-shadow cursor-pointer card-hover animate-fade-in"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="text-lg font-bold text-foreground">{card.category}</h3>
+                    <Badge variant="secondary" className="text-xs">
+                      {card.soldCount} sold
+                    </Badge>
+                  </div>
 
-                      <p className="text-lg font-semibold text-muted-foreground mb-4">
-                        {formatCurrency(card.totalAmount)}
-                      </p>
+                  <p className="text-lg font-semibold text-muted-foreground mb-4">
+                    {formatCurrency(card.totalAmount)}
+                  </p>
 
-                      {card.topProduct && (
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="w-6 h-6 rounded-full bg-warning flex items-center justify-center">
-                            <span className="text-warning-foreground text-xs font-bold">1</span>
-                          </div>
-                          <span className="text-sm text-muted-foreground truncate flex-1">
-                            {card.topProduct.name.length > 15 
-                              ? card.topProduct.name.substring(0, 15) + '...' 
-                              : card.topProduct.name}
-                          </span>
-                          <span className="text-sm font-medium text-foreground">
-                            {card.topProduct.qty.toLocaleString()} pcs
-                          </span>
-                        </div>
-                      )}
-
-                      <p className="text-xs text-muted-foreground">
-                        Click to see store breakdown
-                      </p>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-6 h-6 rounded-full bg-warning flex items-center justify-center">
+                      <span className="text-warning-foreground text-xs font-bold">1</span>
                     </div>
-                  ))}
+                    <span className="text-sm font-medium text-foreground">
+                      {card.soldCount} pcs
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    Click to see store breakdown
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Category Summary Table */}
+          <div className="bg-card rounded-xl card-shadow overflow-hidden animate-fade-in">
+            <div className="p-5 border-b border-border">
+              <h2 className="text-lg font-semibold text-foreground">
+                Category Summary - {formatMonthYear(selectedMonth)}
+              </h2>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow className="table-header border-0">
+                  <TableHead>Category</TableHead>
+                  <TableHead className="text-center">Total Qty</TableHead>
+                  <TableHead className="text-right">Total Sales</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {categoryCards.map((card) => (
+                  <TableRow key={card.category} className="table-row">
+                    <TableCell className="font-medium">{card.category}</TableCell>
+                    <TableCell className="text-center">{card.soldCount}</TableCell>
+                    <TableCell className="text-right font-semibold">{formatCurrency(card.totalAmount)}</TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="bg-muted/50 font-bold">
+                  <TableCell>TOTAL</TableCell>
+                  <TableCell className="text-center">{totalItemsSold}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(totalSales)}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Sold Items List */}
+          {filteredEntries.length > 0 ? (
+            <div className="bg-card rounded-xl card-shadow overflow-hidden animate-fade-in">
+              <div className="p-5 border-b border-border flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <ShoppingBag className="h-5 w-5 text-foreground" />
+                  <h2 className="text-lg font-semibold text-foreground">
+                    Sold Items - {formatMonthYear(selectedMonth)}
+                  </h2>
+                  <Badge variant="secondary">{filteredEntries.length} items</Badge>
                 </div>
               </div>
-
-              {/* Category Summary Table */}
-              <div className="bg-card rounded-xl card-shadow overflow-hidden animate-fade-in">
-                <div className="p-5 border-b border-border">
-                  <h2 className="text-lg font-semibold text-foreground">
-                    Category Summary - {formatMonthYear(selectedMonth)}
-                  </h2>
-                </div>
+              <div className="max-h-[500px] overflow-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="table-header border-0">
+                      <TableHead>Date</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Description</TableHead>
                       <TableHead>Category</TableHead>
-                      <TableHead className="text-center">Total Qty</TableHead>
-                      <TableHead className="text-right">Total Sales</TableHead>
+                      <TableHead className="text-center">Qty</TableHead>
+                      <TableHead className="text-right">Price</TableHead>
+                      <TableHead className="text-center">Discount %</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {branchCards.map((card) => (
-                      <TableRow key={card.branch} className="table-row">
-                        <TableCell className="font-medium">{card.branch}</TableCell>
-                        <TableCell className="text-center">{card.soldCount.toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-semibold">{formatCurrency(card.totalAmount)}</TableCell>
+                    {filteredEntries.map((entry) => (
+                      <TableRow key={entry.id} className="table-row">
+                        <TableCell className="text-sm">{formatDate(entry.date)}</TableCell>
+                        <TableCell className="text-sm font-medium">{entry.name}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">
+                          {entry.description || '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="font-medium">
+                            {entry.category}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">{entry.qty}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(entry.price)}</TableCell>
+                        <TableCell className="text-center">{entry.discountPercent}%</TableCell>
+                        <TableCell className="text-right font-semibold text-primary">
+                          {formatCurrency(entry.amount)}
+                        </TableCell>
                       </TableRow>
                     ))}
-                    <TableRow className="bg-muted/50 font-bold">
-                      <TableCell>TOTAL</TableCell>
-                      <TableCell className="text-center">{totalItemsSold.toLocaleString()}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(totalSales)}</TableCell>
-                    </TableRow>
                   </TableBody>
                 </Table>
               </div>
-
-              {/* Sold Items List */}
-              <div className="bg-card rounded-xl card-shadow overflow-hidden animate-fade-in">
-                <div className="p-5 border-b border-border flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <ShoppingBag className="h-5 w-5 text-foreground" />
-                    <h2 className="text-lg font-semibold text-foreground">
-                      Sold Items - {formatMonthYear(selectedMonth)}
-                    </h2>
-                    <Badge variant="secondary">{filteredEntries.length} items</Badge>
-                  </div>
-                  {filteredEntries.length > 0 && (
-                    <Button 
-                      variant="destructive" 
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to clear all entries?')) {
-                          // This would clear entries - for now just a placeholder
-                        }
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Clear All
-                    </Button>
-                  )}
-                </div>
-                <div className="max-h-[500px] overflow-auto">
-                  <Table>
-                    <TableBody>
-                      {filteredEntries.map((entry) => (
-                        <TableRow key={entry.id} className="table-row">
-                          <TableCell className="text-sm text-muted-foreground w-[120px]">
-                            {formatDate(entry.date)}
-                          </TableCell>
-                          <TableCell className="text-sm font-medium">{entry.upc || '-'}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="font-medium">
-                              {entry.branch}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm">{entry.name}</TableCell>
-                          <TableCell className="text-center text-sm">{entry.qty}</TableCell>
-                          <TableCell className="text-right text-sm text-muted-foreground">
-                            {formatCurrency(entry.price)}
-                          </TableCell>
-                          <TableCell className="text-right font-semibold text-primary">
-                            {formatCurrency(entry.amount)}
-                          </TableCell>
-                          <TableCell className="w-[50px]">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                              onClick={() => {
-                                if (window.confirm('Delete this entry?')) {
-                                  // removeEntry would be called here
-                                }
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-            </>
+            </div>
           ) : (
             <SectionCard>
               <EmptyState
                 title="No Sales Found"
-                description={`No sales data available for ${formatMonthYear(selectedMonth)}. Try selecting a different month or adjusting your filters.`}
+                description={`No sales data available for ${formatMonthYear(selectedMonth)}. Try selecting a different month or importing sales data.`}
               />
             </SectionCard>
           )}
         </div>
       </div>
 
-      {/* Detail Dialog */}
+      {/* Category Breakdown Dialog */}
       <Dialog
-        open={detailDialog.open}
-        onOpenChange={(open) => setDetailDialog((prev) => ({ ...prev, open }))}
+        open={categoryDialog.open}
+        onOpenChange={(open) => setCategoryDialog((prev) => ({ ...prev, open }))}
       >
         <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader className="flex-shrink-0">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
-                  <Building className="h-5 w-5 text-muted-foreground" />
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Package className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <DialogTitle className="text-xl">{detailDialog.branch}</DialogTitle>
+                  <DialogTitle className="text-xl">{categoryDialog.category} - Store Breakdown</DialogTitle>
                   <p className="text-sm text-muted-foreground">
-                    {detailDialog.entries.length} items • Total: {formatCurrency(detailDialog.totalAmount)}
+                    {categoryDialog.branches.length} branches • Total: {formatCurrency(categoryDialog.overallTotal)}
                   </p>
                 </div>
               </div>
-              {detailDialog.topCategory && (
-                <div className="flex items-center gap-2 bg-warning/10 text-warning px-3 py-1.5 rounded-full">
-                  <Award className="h-4 w-4" />
-                  <span className="text-sm font-medium">
-                    Top Category: {detailDialog.topCategory.name} ({formatCurrency(detailDialog.topCategory.amount)})
-                  </span>
-                </div>
-              )}
+              <div className="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1.5 rounded-full">
+                <Award className="h-4 w-4" />
+                <span className="text-sm font-medium">
+                  {categoryDialog.overallQty} pcs sold
+                </span>
+              </div>
             </div>
           </DialogHeader>
 
-          <div className="flex-1 overflow-auto mt-4">
-            <Table>
-              <TableHeader>
-                <TableRow className="table-header border-0">
-                  <TableHead className="w-[100px]">DATE</TableHead>
-                  <TableHead>NAME</TableHead>
-                  <TableHead>DESCRIPTION</TableHead>
-                  <TableHead>CATEGORY</TableHead>
-                  <TableHead className="text-center">QTY</TableHead>
-                  <TableHead className="text-right">PRICE</TableHead>
-                  <TableHead className="text-center">DISCOUNT %</TableHead>
-                  <TableHead className="text-right">AMOUNT</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {detailDialog.entries.map((entry) => (
-                  <TableRow key={entry.id} className="table-row">
-                    <TableCell className="text-sm">{formatDate(entry.date)}</TableCell>
-                    <TableCell className="text-sm font-medium">{entry.name}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">
-                      {entry.description || '-'}
-                    </TableCell>
-                    <TableCell className="text-sm">{entry.category}</TableCell>
-                    <TableCell className="text-center">{entry.qty}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(entry.price)}</TableCell>
-                    <TableCell className="text-center">{entry.discountPercent}%</TableCell>
-                    <TableCell className="text-right font-semibold text-primary">
-                      {formatCurrency(entry.amount)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          <div className="flex-1 overflow-auto mt-4 space-y-6">
+            {categoryDialog.branches.map((branchData, index) => (
+              <div key={branchData.branch} className="bg-muted/30 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    {index === 0 && (
+                      <div className="w-6 h-6 rounded-full bg-warning flex items-center justify-center">
+                        <span className="text-warning-foreground text-xs font-bold">1</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <Building className="h-4 w-4 text-muted-foreground" />
+                      <h4 className="font-semibold text-foreground">{branchData.branch}</h4>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-primary">{formatCurrency(branchData.totalAmount)}</p>
+                    <p className="text-xs text-muted-foreground">{branchData.totalQty} pcs</p>
+                  </div>
+                </div>
+
+                {/* Daily Breakdown Table */}
+                <Table>
+                  <TableHeader>
+                    <TableRow className="table-header border-0">
+                      <TableHead>Date</TableHead>
+                      <TableHead className="text-center">Qty</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {branchData.dailyBreakdown.map((day) => (
+                      <TableRow key={day.date} className="table-row">
+                        <TableCell className="text-sm">{formatDate(day.date)}</TableCell>
+                        <TableCell className="text-center">{day.qty}</TableCell>
+                        <TableCell className="text-right font-medium">{formatCurrency(day.amount)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ))}
           </div>
 
           <div className="flex-shrink-0 pt-4 border-t border-border">
-            <p className="text-sm text-muted-foreground">
-              {detailDialog.entries.length} items
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                {categoryDialog.branches.length} branches with sales in {categoryDialog.category}
+              </p>
+              <div className="text-right">
+                <p className="text-lg font-bold text-primary">Overall Total: {formatCurrency(categoryDialog.overallTotal)}</p>
+                <p className="text-sm text-muted-foreground">{categoryDialog.overallQty} total items sold</p>
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
