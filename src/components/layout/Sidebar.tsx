@@ -9,7 +9,6 @@ const navItems = [
   { to: '/', label: 'DSR', icon: FileText },
   { to: '/history', label: 'Sales History', icon: History },
   { to: '/collection-history', label: 'Collection History', icon: Wallet },
-  { to: '/collection-items', label: 'Collection Items', icon: Package },
   { to: '/extra-area', label: 'Extra Area', icon: MapPin },
 ];
 
