@@ -28,8 +28,10 @@ interface FilterImportExportProps {
   dateRange: DateRange;
   onDateRangeChange: (range: DateRange) => void;
   entries: SalesEntry[];
-  onImport: (entries: SalesEntry[]) => void;
+  onImport: (entries: SalesEntry[]) => Promise<void>;
   onClearAll: () => void;
+  isImporting?: boolean;
+  importProgress?: number;
 }
 
 export const FilterImportExport: React.FC<FilterImportExportProps> = ({
@@ -38,10 +40,14 @@ export const FilterImportExport: React.FC<FilterImportExportProps> = ({
   entries,
   onImport,
   onClearAll,
+  isImporting: externalIsImporting = false,
+  importProgress = 0,
 }) => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const [isImporting, setIsImporting] = React.useState(false);
+  const [isProcessingFile, setIsProcessingFile] = React.useState(false);
   const [importCalendarOpen, setImportCalendarOpen] = React.useState(false);
+  
+  const isImporting = externalIsImporting || isProcessingFile;
 
   const handleImportClick = () => {
     // Open the calendar popover when Import Excel is clicked
@@ -75,7 +81,7 @@ export const FilterImportExport: React.FC<FilterImportExportProps> = ({
       return;
     }
 
-    setIsImporting(true);
+    setIsProcessingFile(true);
     try {
       const result = await importFromExcel(file, {
         dateRangeFrom: dateRange.from,
@@ -83,7 +89,8 @@ export const FilterImportExport: React.FC<FilterImportExportProps> = ({
       });
       
       if (result.success && result.data.length > 0) {
-        onImport(result.data as SalesEntry[]);
+        // Use async import for smooth UI
+        await onImport(result.data as SalesEntry[]);
         toast({
           title: 'Import successful',
           description: `${result.data.length} entries imported.${result.errors.length > 0 ? ` ${result.errors.length} rows had issues.` : ''}`,
@@ -102,7 +109,7 @@ export const FilterImportExport: React.FC<FilterImportExportProps> = ({
         variant: 'destructive',
       });
     } finally {
-      setIsImporting(false);
+      setIsProcessingFile(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -186,10 +193,12 @@ export const FilterImportExport: React.FC<FilterImportExportProps> = ({
                 variant="outline"
                 onClick={handleImportClick}
                 disabled={isImporting}
-                className="gap-2"
+                className="gap-2 min-w-[140px]"
               >
                 <Upload className="h-4 w-4" />
-                {isImporting ? 'Importing...' : 'Import Excel'}
+                {isImporting 
+                  ? `Importing... ${importProgress}%` 
+                  : 'Import Excel'}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0 bg-popover" align="start">
