@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SectionCard } from '@/components/sales/SectionCard';
 import { EmptyState } from '@/components/sales/EmptyState';
+import { TablePagination } from '@/components/ui/TablePagination';
 import { SalesEntry } from '@/types/sales';
 import { formatCurrency, formatDate } from '@/utils/formatters';
 
@@ -19,17 +20,27 @@ interface SalesEntryTableProps {
   entries: SalesEntry[];
   onDelete?: (id: string) => void;
   showActions?: boolean;
+  currentPage?: number;
+  totalPages?: number;
+  totalItems?: number;
+  onPageChange?: (page: number) => void;
+  itemsPerPage?: number;
 }
 
 export const SalesEntryTable: React.FC<SalesEntryTableProps> = ({
   entries,
   onDelete,
   showActions = true,
+  currentPage = 1,
+  totalPages = 1,
+  totalItems,
+  onPageChange,
+  itemsPerPage = 50,
 }) => {
   const totalAmount = entries.reduce((sum, e) => sum + e.amount, 0);
   const totalQty = entries.reduce((sum, e) => sum + e.qty, 0);
 
-  if (entries.length === 0) {
+  if (entries.length === 0 && totalPages <= 1) {
     return (
       <SectionCard>
         <EmptyState
@@ -43,7 +54,7 @@ export const SalesEntryTable: React.FC<SalesEntryTableProps> = ({
   return (
     <SectionCard
       title="Sales Entries"
-      subtitle={`${entries.length} entries | Total: ${formatCurrency(totalAmount)}`}
+      subtitle={`${totalItems || entries.length} entries | Total: ${formatCurrency(totalAmount)}`}
     >
       <div className="overflow-x-auto -mx-6">
         <Table>
@@ -125,6 +136,18 @@ export const SalesEntryTable: React.FC<SalesEntryTableProps> = ({
           Total: {formatCurrency(totalAmount)}
         </div>
       </div>
+
+      {/* Pagination */}
+      {onPageChange && totalPages > 1 && (
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={onPageChange}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          className="border-t border-border mt-4"
+        />
+      )}
     </SectionCard>
   );
 };

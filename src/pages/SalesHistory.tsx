@@ -4,6 +4,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { SectionCard } from '@/components/sales/SectionCard';
 import { EmptyState } from '@/components/sales/EmptyState';
+import { TablePagination } from '@/components/ui/TablePagination';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,8 +37,7 @@ import { cn } from '@/lib/utils';
 // Fixed 4 categories only
 const ALLOWED_CATEGORIES = ['MHB', 'MLP', 'MSH', 'MUM'] as const;
 
-const INITIAL_ROWS = 200;
-const ROWS_STEP = 200;
+const ITEMS_PER_PAGE = 50;
 
 interface CategoryBreakdownDialog {
   open: boolean;
@@ -61,7 +61,7 @@ const SalesHistory: React.FC = () => {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedBranch, setSelectedBranch] = React.useState<string>('all');
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
-  const [visibleRows, setVisibleRows] = React.useState(INITIAL_ROWS);
+  const [currentPage, setCurrentPage] = React.useState(1);
   const [categoryDialog, setCategoryDialog] = React.useState<CategoryBreakdownDialog>({
     open: false,
     category: '',
@@ -103,8 +103,9 @@ const SalesHistory: React.FC = () => {
     });
   }, [monthEntries, normalizedSearch, selectedBranch, selectedCategory]);
 
+  // Reset page when filters change
   React.useEffect(() => {
-    setVisibleRows(INITIAL_ROWS);
+    setCurrentPage(1);
   }, [selectedMonth, selectedBranch, selectedCategory, normalizedSearch]);
 
   const kpis = React.useMemo(() => {
@@ -221,10 +222,12 @@ const SalesHistory: React.FC = () => {
     });
   };
 
-  const visibleEntries = React.useMemo(
-    () => filteredEntries.slice(0, visibleRows),
-    [filteredEntries, visibleRows]
-  );
+  // Pagination
+  const totalPages = Math.ceil(filteredEntries.length / ITEMS_PER_PAGE);
+  const paginatedEntries = React.useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredEntries.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredEntries, currentPage]);
 
   return (
     <MainLayout>
@@ -471,7 +474,7 @@ const SalesHistory: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {visibleEntries.map((entry) => (
+                    {paginatedEntries.map((entry) => (
                       <TableRow key={entry.id} className="table-row">
                         <TableCell className="text-sm">{formatDate(entry.date)}</TableCell>
                         <TableCell className="text-sm font-medium">{entry.name}</TableCell>
@@ -495,19 +498,15 @@ const SalesHistory: React.FC = () => {
                 </Table>
               </div>
 
-              {filteredEntries.length > visibleRows && (
-                <div className="p-4 border-t border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <p className="text-sm text-muted-foreground">
-                    Showing <span className="font-medium text-foreground">{visibleEntries.length}</span> of{' '}
-                    <span className="font-medium text-foreground">{filteredEntries.length}</span>
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={() => setVisibleRows((v) => Math.min(v + ROWS_STEP, filteredEntries.length))}
-                  >
-                    Load more
-                  </Button>
-                </div>
+              {totalPages > 1 && (
+                <TablePagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                  totalItems={filteredEntries.length}
+                  itemsPerPage={ITEMS_PER_PAGE}
+                  className="px-5 border-t border-border"
+                />
               )}
             </div>
           ) : (

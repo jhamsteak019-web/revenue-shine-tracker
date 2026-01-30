@@ -26,6 +26,9 @@ import {
 import { Plus, Pencil, Trash2, ImagePlus, X, MapPin } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/utils/formatters';
+import { TablePagination } from '@/components/ui/TablePagination';
+
+const ITEMS_PER_PAGE = 50;
 
 interface PhotoGroup {
   approvedBoss: string[];
@@ -56,6 +59,7 @@ const ExtraAreaReport: React.FC = () => {
   const [editingEntry, setEditingEntry] = React.useState<ExtraAreaEntry | null>(null);
   const [photoGalleryOpen, setPhotoGalleryOpen] = React.useState(false);
   const [selectedEntryPhotos, setSelectedEntryPhotos] = React.useState<ExtraAreaEntry | null>(null);
+  const [currentPage, setCurrentPage] = React.useState(1);
 
   // Form state
   const [formData, setFormData] = React.useState({
@@ -284,6 +288,13 @@ const ExtraAreaReport: React.FC = () => {
     setPhotoGalleryOpen(true);
   };
 
+  // Pagination
+  const totalPages = Math.ceil(entries.length / ITEMS_PER_PAGE);
+  const paginatedEntries = React.useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return entries.slice(start, start + ITEMS_PER_PAGE);
+  }, [entries, currentPage]);
+
   return (
     <MainLayout>
       <PageHeader
@@ -351,7 +362,7 @@ const ExtraAreaReport: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {entries.map((entry, index) => (
+                    {paginatedEntries.map((entry, index) => (
                       <TableRow 
                         key={entry.id} 
                         className={cn(
@@ -449,6 +460,17 @@ const ExtraAreaReport: React.FC = () => {
                     ))}
                   </TableBody>
                 </Table>
+
+                {totalPages > 1 && (
+                  <TablePagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                    totalItems={entries.length}
+                    itemsPerPage={ITEMS_PER_PAGE}
+                    className="px-6 border-t border-border/50"
+                  />
+                )}
               </div>
             ) : (
               <div className="p-12">
