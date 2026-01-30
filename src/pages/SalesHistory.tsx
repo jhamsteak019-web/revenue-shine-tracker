@@ -36,6 +36,9 @@ import { cn } from '@/lib/utils';
 // Fixed 4 categories only
 const ALLOWED_CATEGORIES = ['MHB', 'MLP', 'MSH', 'MUM'] as const;
 
+const INITIAL_ROWS = 200;
+const ROWS_STEP = 200;
+
 interface CategoryBreakdownDialog {
   open: boolean;
   category: string;
@@ -51,11 +54,14 @@ interface CategoryBreakdownDialog {
 }
 
 const SalesHistory: React.FC = () => {
-  const { selectedMonth, setSelectedMonth, getEntriesForMonth } = useSalesStore();
+  const entries = useSalesStore((s) => s.entries);
+  const selectedMonth = useSalesStore((s) => s.selectedMonth);
+  const setSelectedMonth = useSalesStore((s) => s.setSelectedMonth);
   
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedBranch, setSelectedBranch] = React.useState<string>('all');
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
+  const [visibleRows, setVisibleRows] = React.useState(INITIAL_ROWS);
   const [categoryDialog, setCategoryDialog] = React.useState<CategoryBreakdownDialog>({
     open: false,
     category: '',
@@ -64,7 +70,17 @@ const SalesHistory: React.FC = () => {
     overallQty: 0,
   });
 
-  const monthEntries = getEntriesForMonth(selectedMonth);
+  const monthEntries = React.useMemo(() => {
+    const month = selectedMonth.getMonth();
+    const year = selectedMonth.getFullYear();
+    return entries.filter((entry) => {
+      const d = new Date(entry.date);
+      return d.getMonth() === month && d.getFullYear() === year;
+    });
+  }, [entries, selectedMonth]);
+
+  const deferredSearch = React.useDeferredValue(searchQuery);
+  const normalizedSearch = deferredSearch.trim().toLowerCase();
 
   // Get unique branches from data
   const uniqueBranches = React.useMemo(() => {
@@ -78,20 +94,39 @@ const SalesHistory: React.FC = () => {
       if (!isAllowedCategory) return false;
       
       const matchesSearch =
-        !searchQuery ||
-        entry.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        entry.upc.includes(searchQuery);
+        !normalizedSearch ||
+        entry.name.toLowerCase().includes(normalizedSearch) ||
+        entry.upc.includes(normalizedSearch);
       const matchesBranch = selectedBranch === 'all' || entry.branch === selectedBranch;
       const matchesCategory = selectedCategory === 'all' || entry.category === selectedCategory;
       return matchesSearch && matchesBranch && matchesCategory;
     });
-  }, [monthEntries, searchQuery, selectedBranch, selectedCategory]);
+  }, [monthEntries, normalizedSearch, selectedBranch, selectedCategory]);
 
-  // Calculate KPIs
-  const totalSales = filteredEntries.reduce((sum, e) => sum + e.amount, 0);
-  const totalItemsSold = filteredEntries.reduce((sum, e) => sum + e.qty, 0);
-  const activeBranches = new Set(filteredEntries.map((e) => e.branch)).size;
-  const uniqueProducts = new Set(filteredEntries.map((e) => e.name)).size;
+  React.useEffect(() => {
+    setVisibleRows(INITIAL_ROWS);
+  }, [selectedMonth, selectedBranch, selectedCategory, normalizedSearch]);
+
+  const kpis = React.useMemo(() => {
+    let totalSales = 0;
+    let totalItemsSold = 0;
+    const branches = new Set<string>();
+    const products = new Set<string>();
+
+    for (const e of filteredEntries) {
+      totalSales += e.amount;
+      totalItemsSold += e.qty;
+      if (e.branch) branches.add(e.branch);
+      if (e.name) products.add(e.name);
+    }
+
+    return {
+      totalSales,
+      totalItemsSold,
+      activeBranches: branches.size,
+      uniqueProducts: products.size,
+    };
+  }, [filteredEntries]);
 
   // Branch summaries for pills
   const branchSummaries = React.useMemo(() => {
@@ -106,38 +141,26 @@ const SalesHistory: React.FC = () => {
 
   // Category cards data - only show allowed categories
   const categoryCards = React.useMemo(() => {
-    const cardMap = new Map<string, {
-      category: string;
-      totalAmount: number;
-      soldCount: number;
-      entries: SalesEntry[];
-    }>();
+    const totals = new Map<string, { totalAmount: number; soldCount: number }>();
+    ALLOWED_CATEGORIES.forEach((cat) => totals.set(cat, { totalAmount: 0, soldCount: 0 }));
 
-    // Initialize all allowed categories
-    ALLOWED_CATEGORIES.forEach(cat => {
-      cardMap.set(cat, {
-        category: cat,
-        totalAmount: 0,
-        soldCount: 0,
-        entries: [],
-      });
-    });
+    for (const entry of filteredEntries) {
+      if (!ALLOWED_CATEGORIES.includes(entry.category as typeof ALLOWED_CATEGORIES[number])) continue;
+      const t = totals.get(entry.category)!
+      t.totalAmount += entry.amount;
+      t.soldCount += entry.qty;
+    }
 
-    // Aggregate entries by category
-    filteredEntries.forEach((entry) => {
-      if (ALLOWED_CATEGORIES.includes(entry.category as typeof ALLOWED_CATEGORIES[number])) {
-        const existing = cardMap.get(entry.category)!;
-        existing.totalAmount += entry.amount;
-        existing.soldCount += entry.qty;
-        existing.entries.push(entry);
-      }
-    });
-
-    return ALLOWED_CATEGORIES.map(cat => cardMap.get(cat)!);
+    return ALLOWED_CATEGORIES.map((cat) => ({
+      category: cat,
+      totalAmount: totals.get(cat)!.totalAmount,
+      soldCount: totals.get(cat)!.soldCount,
+    }));
   }, [filteredEntries]);
 
   // Handle category card click - show branch breakdown with daily sales
-  const handleCategoryCardClick = (categoryData: typeof categoryCards[0]) => {
+  const handleCategoryCardClick = (categoryData: typeof categoryCards[number]) => {
+    const categoryEntries = filteredEntries.filter((e) => e.category === categoryData.category);
     const branchMap = new Map<string, {
       branch: string;
       totalAmount: number;
@@ -146,7 +169,7 @@ const SalesHistory: React.FC = () => {
       entries: SalesEntry[];
     }>();
 
-    categoryData.entries.forEach((entry) => {
+    categoryEntries.forEach((entry) => {
       const existing = branchMap.get(entry.branch);
       if (existing) {
         existing.totalAmount += entry.amount;
@@ -198,6 +221,11 @@ const SalesHistory: React.FC = () => {
     });
   };
 
+  const visibleEntries = React.useMemo(
+    () => filteredEntries.slice(0, visibleRows),
+    [filteredEntries, visibleRows]
+  );
+
   return (
     <MainLayout>
       <PageHeader
@@ -223,7 +251,7 @@ const SalesHistory: React.FC = () => {
                     Total Sales - All Categories
                   </p>
                   <p className="text-3xl lg:text-4xl font-bold text-foreground">
-                    {formatCurrency(totalSales)}
+                    {formatCurrency(kpis.totalSales)}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {formatMonthYear(selectedMonth)}
@@ -252,7 +280,7 @@ const SalesHistory: React.FC = () => {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground font-medium">Total Sales</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">{formatCurrency(totalSales)}</p>
+                   <p className="text-2xl font-bold text-foreground mt-1">{formatCurrency(kpis.totalSales)}</p>
                   <p className="text-xs text-muted-foreground mt-1">{formatMonthYear(selectedMonth)}</p>
                 </div>
                 <TrendingUp className="h-5 w-5 text-muted-foreground" />
@@ -263,7 +291,7 @@ const SalesHistory: React.FC = () => {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground font-medium">Total Items Sold</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">{totalItemsSold.toLocaleString()}</p>
+                   <p className="text-2xl font-bold text-foreground mt-1">{kpis.totalItemsSold.toLocaleString()}</p>
                   <p className="text-xs text-muted-foreground mt-1">Items this month</p>
                 </div>
                 <Package className="h-5 w-5 text-muted-foreground" />
@@ -274,7 +302,7 @@ const SalesHistory: React.FC = () => {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground font-medium">Branches</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">{activeBranches}</p>
+                   <p className="text-2xl font-bold text-foreground mt-1">{kpis.activeBranches}</p>
                   <p className="text-xs text-muted-foreground mt-1">Active branches</p>
                 </div>
                 <Building className="h-5 w-5 text-muted-foreground" />
@@ -285,7 +313,7 @@ const SalesHistory: React.FC = () => {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground font-medium">Unique Products</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">{uniqueProducts}</p>
+                   <p className="text-2xl font-bold text-foreground mt-1">{kpis.uniqueProducts}</p>
                   <p className="text-xs text-muted-foreground mt-1">Different items sold</p>
                 </div>
                 <ShoppingBag className="h-5 w-5 text-muted-foreground" />
@@ -299,7 +327,7 @@ const SalesHistory: React.FC = () => {
               <div className="flex-1">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
+                   <Input
                     placeholder="Search by name, UPC..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -409,8 +437,8 @@ const SalesHistory: React.FC = () => {
                 ))}
                 <TableRow className="bg-muted/50 font-bold">
                   <TableCell>TOTAL</TableCell>
-                  <TableCell className="text-center">{totalItemsSold}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(totalSales)}</TableCell>
+                  <TableCell className="text-center">{kpis.totalItemsSold}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(kpis.totalSales)}</TableCell>
                 </TableRow>
               </TableBody>
             </Table>
@@ -443,7 +471,7 @@ const SalesHistory: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredEntries.map((entry) => (
+                    {visibleEntries.map((entry) => (
                       <TableRow key={entry.id} className="table-row">
                         <TableCell className="text-sm">{formatDate(entry.date)}</TableCell>
                         <TableCell className="text-sm font-medium">{entry.name}</TableCell>
@@ -466,6 +494,21 @@ const SalesHistory: React.FC = () => {
                   </TableBody>
                 </Table>
               </div>
+
+              {filteredEntries.length > visibleRows && (
+                <div className="p-4 border-t border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <p className="text-sm text-muted-foreground">
+                    Showing <span className="font-medium text-foreground">{visibleEntries.length}</span> of{' '}
+                    <span className="font-medium text-foreground">{filteredEntries.length}</span>
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => setVisibleRows((v) => Math.min(v + ROWS_STEP, filteredEntries.length))}
+                  >
+                    Load more
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
             <SectionCard>
