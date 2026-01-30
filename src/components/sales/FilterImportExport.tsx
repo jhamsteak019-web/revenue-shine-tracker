@@ -103,9 +103,10 @@ export const FilterImportExport: React.FC<FilterImportExportProps> = ({
         });
       }
     } catch (error) {
+      console.error('Import error:', error);
       toast({
         title: 'Import error',
-        description: 'Failed to import file. Please check the format.',
+        description: error instanceof Error ? error.message : 'Failed to import file. Please check the format.',
         variant: 'destructive',
       });
     } finally {

@@ -74,115 +74,124 @@ const extractCategoryFromProduct = (productName: string): string => {
   return '';
 };
 
-export const importFromExcel = (file: File, options?: ImportOptions): Promise<ImportResult> => {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
+export const importFromExcel = async (file: File, options?: ImportOptions): Promise<ImportResult> => {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const data = new Uint8Array(arrayBuffer);
     
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        // Support both .xlsx and .xls formats
-        const workbook = XLSX.read(data, { 
-          type: 'array',
-          cellDates: true,
-          cellNF: false,
-          cellText: false,
-        });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-
-        const errors: string[] = [];
-        const entries: Partial<SalesEntry>[] = [];
-
-        // Get base date from options or use current date
-        const baseDate = options?.dateRangeFrom || new Date();
-        const baseMonth = baseDate.getMonth();
-        const baseYear = baseDate.getFullYear();
-
-        jsonData.forEach((row: any, index: number) => {
-          const rowNum = index + 2; // Account for header row
-          
-          // Map column names based on the actual Excel format (case-insensitive)
-          const name = String(row['Name'] || row['name'] || row['NAME'] || '').trim();
-          const product = String(row['Product'] || row['product'] || row['PRODUCT'] || '').trim();
-          const branch = String(row['Branch'] || row['branch'] || row['BRANCH'] || '').trim();
-          const qty = Number(row['Quantity'] || row['QTY'] || row['qty'] || row['QUANTITY'] || 1);
-          const price = Number(row['Price'] || row['price'] || row['PRICE'] || 0);
-          const discountPercent = Number(row['Discount'] || row['Discount %'] || row['discount'] || row['DISCOUNT'] || 0);
-          const amount = Number(row['Amount'] || row['amount'] || row['AMOUNT'] || 0);
-          const dayValue = row['Date'] || row['date'] || row['DATE'];
-
-          // Parse day number from Date column (can be "1", "2", or "1 (1 MLP NS)")
-          let dayNum = 1;
-          if (dayValue !== undefined && dayValue !== null && dayValue !== '') {
-            const dayStr = String(dayValue).split(' ')[0]; // Take first part before space
-            const parsed = parseInt(dayStr, 10);
-            if (!isNaN(parsed) && parsed >= 1 && parsed <= 31) {
-              dayNum = parsed;
-            }
-          }
-
-          // Create full date using base month/year + day from Excel
-          const entryDate = new Date(baseYear, baseMonth, dayNum);
-          const dateStr = entryDate.toISOString().split('T')[0];
-
-          // Auto-detect category from product name
-          const category = extractCategoryFromProduct(product);
-
-          // Skip rows without essential data
-          if (!name && !product && !branch) {
-            return; // Skip empty rows silently
-          }
-
-          // Validate required fields
-          if (!name) errors.push(`Row ${rowNum}: Missing name`);
-          if (!product) errors.push(`Row ${rowNum}: Missing product`);
-          if (!branch) errors.push(`Row ${rowNum}: Missing branch`);
-
-          if (name && product && branch) {
-            entries.push({
-              id: `import-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
-              date: dateStr,
-              upc: '', // No UPC in this format
-              name,
-              description: product,
-              qty: isNaN(qty) ? 1 : qty,
-              category,
-              price: isNaN(price) ? 0 : price,
-              discountPercent: isNaN(discountPercent) ? 0 : discountPercent,
-              amount: isNaN(amount) ? Math.round(price * qty * (1 - discountPercent / 100) * 100) / 100 : amount,
-              branch,
-              createdAt: new Date().toISOString(),
-            });
-          }
-        });
-
-        resolve({
-          success: entries.length > 0,
-          data: entries,
-          errors: errors.slice(0, 10), // Limit errors to first 10
-        });
-      } catch (error) {
-        console.error('Excel import error:', error);
-        resolve({
-          success: false,
-          data: [],
-          errors: [`Failed to parse Excel file: ${error instanceof Error ? error.message : 'Unknown error'}`],
-        });
-      }
-    };
-
-    reader.onerror = () => {
-      resolve({
+    // Support both .xlsx and .xls formats
+    const workbook = XLSX.read(data, { 
+      type: 'array',
+    });
+    
+    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+      return {
         success: false,
         data: [],
-        errors: ['Failed to read file.'],
-      });
-    };
+        errors: ['No sheets found in workbook'],
+      };
+    }
+    
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    
+    if (!worksheet) {
+      return {
+        success: false,
+        data: [],
+        errors: ['Could not read worksheet'],
+      };
+    }
+    
+    const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+      defval: '',
+      raw: false,
+    }) as any[];
 
-    reader.readAsArrayBuffer(file);
-  });
+    console.log('Excel parsed rows:', jsonData.length);
+    if (jsonData.length > 0) {
+      console.log('First row sample:', jsonData[0]);
+    }
+
+    const errors: string[] = [];
+    const entries: Partial<SalesEntry>[] = [];
+
+    // Get base date from options or use current date
+    const baseDate = options?.dateRangeFrom || new Date();
+    const baseMonth = baseDate.getMonth();
+    const baseYear = baseDate.getFullYear();
+
+    jsonData.forEach((row: any, index: number) => {
+      const rowNum = index + 2; // Account for header row
+      
+      // Map column names based on the actual Excel format (case-insensitive)
+      const name = String(row['Name'] || row['name'] || row['NAME'] || '').trim();
+      const product = String(row['Product'] || row['product'] || row['PRODUCT'] || '').trim();
+      const branch = String(row['Branch'] || row['branch'] || row['BRANCH'] || '').trim();
+      const qty = Number(row['Quantity'] || row['QTY'] || row['qty'] || row['QUANTITY'] || 1);
+      const price = Number(row['Price'] || row['price'] || row['PRICE'] || 0);
+      const discountPercent = Number(row['Discount'] || row['Discount %'] || row['discount'] || row['DISCOUNT'] || 0);
+      const amount = Number(row['Amount'] || row['amount'] || row['AMOUNT'] || 0);
+      const dayValue = row['Date'] || row['date'] || row['DATE'];
+
+      // Parse day number from Date column (can be "1", "2", or "1 (1 MLP NS)")
+      let dayNum = 1;
+      if (dayValue !== undefined && dayValue !== null && dayValue !== '') {
+        const dayStr = String(dayValue).split(' ')[0];
+        const parsed = parseInt(dayStr, 10);
+        if (!isNaN(parsed) && parsed >= 1 && parsed <= 31) {
+          dayNum = parsed;
+        }
+      }
+
+      // Create full date using base month/year + day from Excel
+      const entryDate = new Date(baseYear, baseMonth, dayNum);
+      const dateStr = entryDate.toISOString().split('T')[0];
+
+      // Auto-detect category from product name
+      const category = extractCategoryFromProduct(product);
+
+      // Skip rows without essential data
+      if (!name && !product && !branch) {
+        return;
+      }
+
+      // Validate required fields
+      if (!name) errors.push(`Row ${rowNum}: Missing name`);
+      if (!product) errors.push(`Row ${rowNum}: Missing product`);
+      if (!branch) errors.push(`Row ${rowNum}: Missing branch`);
+
+      if (name && product && branch) {
+        entries.push({
+          id: `import-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
+          date: dateStr,
+          upc: '',
+          name,
+          description: product,
+          qty: isNaN(qty) ? 1 : qty,
+          category,
+          price: isNaN(price) ? 0 : price,
+          discountPercent: isNaN(discountPercent) ? 0 : discountPercent,
+          amount: isNaN(amount) ? Math.round(price * qty * (1 - discountPercent / 100) * 100) / 100 : amount,
+          branch,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    });
+
+    return {
+      success: entries.length > 0,
+      data: entries,
+      errors: errors.slice(0, 10),
+    };
+  } catch (error) {
+    console.error('Excel import error:', error);
+    return {
+      success: false,
+      data: [],
+      errors: [`Failed to parse Excel file: ${error instanceof Error ? error.message : 'Unknown error'}`],
+    };
+  }
 };
 
 const formatExcelDate = (excelDate: any): string => {
