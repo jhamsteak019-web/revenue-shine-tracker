@@ -31,10 +31,12 @@ import {
 import { useSalesStore } from '@/hooks/useSalesStore';
 import { formatCurrency, formatMonthYear, formatDate } from '@/utils/formatters';
 import { SalesEntry } from '@/types/sales';
-import { cn } from '@/lib/utils';
 
 // Fixed 4 categories only
 const ALLOWED_CATEGORIES = ['MHB', 'MLP', 'MSH', 'MUM'] as const;
+
+const INITIAL_ROWS = 200;
+const ROWS_STEP = 200;
 
 interface CategoryBreakdownDialog {
   open: boolean;
@@ -52,11 +54,16 @@ interface CategoryBreakdownDialog {
 }
 
 const CollectionHistory: React.FC = () => {
-  const { selectedMonth, setSelectedMonth, getEntriesForMonth, removeEntry, clearAllEntries } = useSalesStore();
+  const entries = useSalesStore((s) => s.entries);
+  const selectedMonth = useSalesStore((s) => s.selectedMonth);
+  const setSelectedMonth = useSalesStore((s) => s.setSelectedMonth);
+  const removeEntry = useSalesStore((s) => s.removeEntry);
+  const clearAllEntries = useSalesStore((s) => s.clearAllEntries);
   
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedBranch, setSelectedBranch] = React.useState<string>('all');
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
+  const [visibleRows, setVisibleRows] = React.useState(INITIAL_ROWS);
   const [categoryDialog, setCategoryDialog] = React.useState<CategoryBreakdownDialog>({
     open: false,
     category: '',
@@ -65,7 +72,15 @@ const CollectionHistory: React.FC = () => {
     overallQty: 0,
   });
 
-  const monthEntries = getEntriesForMonth(selectedMonth);
+  // Memoize month entries
+  const monthEntries = React.useMemo(() => {
+    const month = selectedMonth.getMonth();
+    const year = selectedMonth.getFullYear();
+    return entries.filter((entry) => {
+      const d = new Date(entry.date);
+      return d.getMonth() === month && d.getFullYear() === year;
+    });
+  }, [entries, selectedMonth]);
 
   // Get unique branches from data
   const uniqueBranches = React.useMemo(() => {
@@ -75,6 +90,10 @@ const CollectionHistory: React.FC = () => {
   // Only show the 4 allowed categories
   const uniqueCategories = ALLOWED_CATEGORIES;
 
+  // Deferred search for smooth typing
+  const deferredSearch = React.useDeferredValue(searchQuery);
+  const normalizedSearch = deferredSearch.trim().toLowerCase();
+
   // Filter entries based on search and filters - ONLY show allowed categories
   const filteredEntries = React.useMemo(() => {
     return monthEntries.filter((entry) => {
@@ -82,64 +101,73 @@ const CollectionHistory: React.FC = () => {
       if (!isAllowedCategory) return false;
       
       const matchesSearch =
-        !searchQuery ||
-        entry.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        entry.description.toLowerCase().includes(searchQuery.toLowerCase());
+        !normalizedSearch ||
+        entry.name.toLowerCase().includes(normalizedSearch) ||
+        entry.description.toLowerCase().includes(normalizedSearch);
       const matchesBranch = selectedBranch === 'all' || entry.branch === selectedBranch;
       const matchesCategory = selectedCategory === 'all' || entry.category === selectedCategory;
       return matchesSearch && matchesBranch && matchesCategory;
     });
-  }, [monthEntries, searchQuery, selectedBranch, selectedCategory]);
+  }, [monthEntries, normalizedSearch, selectedBranch, selectedCategory]);
+
+  // Reset visible rows when filters change
+  React.useEffect(() => {
+    setVisibleRows(INITIAL_ROWS);
+  }, [selectedMonth, selectedBranch, selectedCategory, normalizedSearch]);
 
   // Sort entries by amount (highest to lowest)
   const sortedEntries = React.useMemo(() => {
     return [...filteredEntries].sort((a, b) => b.amount - a.amount);
   }, [filteredEntries]);
 
-  // Calculate totals
-  const totalSales = filteredEntries.reduce((sum, e) => sum + e.amount, 0);
-  const totalItemsSold = filteredEntries.reduce((sum, e) => sum + e.qty, 0);
+  // Visible entries for pagination
+  const visibleEntries = React.useMemo(
+    () => sortedEntries.slice(0, visibleRows),
+    [sortedEntries, visibleRows]
+  );
 
-  // Category cards data - only show allowed categories
-  const categoryCards = React.useMemo(() => {
-    const cardMap = new Map<string, {
-      category: string;
-      totalAmount: number;
-      soldCount: number;
-      totalPrice: number;
-      totalDiscount: number;
-      entries: SalesEntry[];
-    }>();
-
-    // Initialize all allowed categories
-    ALLOWED_CATEGORIES.forEach(cat => {
-      cardMap.set(cat, {
-        category: cat,
-        totalAmount: 0,
-        soldCount: 0,
-        totalPrice: 0,
-        totalDiscount: 0,
-        entries: [],
-      });
-    });
-
-    // Aggregate entries by category
-    filteredEntries.forEach((entry) => {
-      if (ALLOWED_CATEGORIES.includes(entry.category as typeof ALLOWED_CATEGORIES[number])) {
-        const existing = cardMap.get(entry.category)!;
-        existing.totalAmount += entry.amount;
-        existing.soldCount += entry.qty;
-        existing.totalPrice += entry.price * entry.qty;
-        existing.totalDiscount += entry.discountPercent;
-        existing.entries.push(entry);
-      }
-    });
-
-    return ALLOWED_CATEGORIES.map(cat => cardMap.get(cat)!);
+  // Calculate totals efficiently
+  const kpis = React.useMemo(() => {
+    let totalSales = 0;
+    let totalItemsSold = 0;
+    for (const e of filteredEntries) {
+      totalSales += e.amount;
+      totalItemsSold += e.qty;
+    }
+    return { totalSales, totalItemsSold };
   }, [filteredEntries]);
 
-  // Handle category card click - show branch breakdown sorted by highest amount
-  const handleCategoryCardClick = (categoryData: typeof categoryCards[0]) => {
+  // Category cards data - only show allowed categories (without storing entries)
+  const categoryCards = React.useMemo(() => {
+    const totals = new Map<string, { totalAmount: number; soldCount: number; totalPrice: number; totalDiscount: number; entryCount: number }>();
+    ALLOWED_CATEGORIES.forEach((cat) => totals.set(cat, { totalAmount: 0, soldCount: 0, totalPrice: 0, totalDiscount: 0, entryCount: 0 }));
+
+    for (const entry of filteredEntries) {
+      if (!ALLOWED_CATEGORIES.includes(entry.category as typeof ALLOWED_CATEGORIES[number])) continue;
+      const t = totals.get(entry.category)!;
+      t.totalAmount += entry.amount;
+      t.soldCount += entry.qty;
+      t.totalPrice += entry.price * entry.qty;
+      t.totalDiscount += entry.discountPercent;
+      t.entryCount += 1;
+    }
+
+    return ALLOWED_CATEGORIES.map((cat) => {
+      const t = totals.get(cat)!;
+      return {
+        category: cat,
+        totalAmount: t.totalAmount,
+        soldCount: t.soldCount,
+        avgPrice: t.soldCount > 0 ? t.totalPrice / t.soldCount : 0,
+        avgDiscount: t.entryCount > 0 ? t.totalDiscount / t.entryCount : 0,
+      };
+    });
+  }, [filteredEntries]);
+
+  // Handle category card click - compute entries on demand
+  const handleCategoryCardClick = (categoryData: typeof categoryCards[number]) => {
+    const categoryEntries = filteredEntries.filter((e) => e.category === categoryData.category);
+    
     const branchMap = new Map<string, {
       branch: string;
       totalAmount: number;
@@ -150,7 +178,7 @@ const CollectionHistory: React.FC = () => {
       entries: SalesEntry[];
     }>();
 
-    categoryData.entries.forEach((entry) => {
+    categoryEntries.forEach((entry) => {
       const existing = branchMap.get(entry.branch);
       if (existing) {
         existing.totalAmount += entry.amount;
@@ -277,50 +305,43 @@ const CollectionHistory: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {categoryCards.map((card) => {
-                    const avgPrice = card.soldCount > 0 ? card.totalPrice / card.soldCount : 0;
-                    const avgDiscount = card.entries.length > 0 
-                      ? card.totalDiscount / card.entries.length 
-                      : 0;
-                    
-                    return (
-                      <div
-                        key={card.category}
-                        onClick={() => handleCategoryCardClick(card)}
-                        className="bg-card rounded-xl p-5 card-shadow cursor-pointer card-hover animate-fade-in"
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <h3 className="text-lg font-bold text-foreground">{card.category}</h3>
-                          <Badge variant="secondary" className="text-xs">
-                            {card.soldCount} sold
-                          </Badge>
-                        </div>
-
-                        <p className="text-xl font-bold text-primary mb-3">
-                          {formatCurrency(card.totalAmount)}
-                        </p>
-
-                        <div className="space-y-1 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Avg Price:</span>
-                            <span className="font-medium">{formatCurrency(avgPrice)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Avg Discount:</span>
-                            <span className="font-medium">{avgDiscount.toFixed(1)}%</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Qty:</span>
-                            <span className="font-medium">{card.soldCount} pcs</span>
-                          </div>
-                        </div>
-
-                        <p className="text-xs text-muted-foreground mt-3">
-                          Click to see branch breakdown
-                        </p>
+                  {categoryCards.map((card) => (
+                    <div
+                      key={card.category}
+                      onClick={() => handleCategoryCardClick(card)}
+                      className="bg-card rounded-xl p-5 card-shadow cursor-pointer card-hover animate-fade-in"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <h3 className="text-lg font-bold text-foreground">{card.category}</h3>
+                        <Badge variant="secondary" className="text-xs">
+                          {card.soldCount} sold
+                        </Badge>
                       </div>
-                    );
-                  })}
+
+                      <p className="text-xl font-bold text-primary mb-3">
+                        {formatCurrency(card.totalAmount)}
+                      </p>
+
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Avg Price:</span>
+                          <span className="font-medium">{formatCurrency(card.avgPrice)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Avg Discount:</span>
+                          <span className="font-medium">{card.avgDiscount.toFixed(1)}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Qty:</span>
+                          <span className="font-medium">{card.soldCount} pcs</span>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-muted-foreground mt-3">
+                        Click to see branch breakdown
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -349,8 +370,8 @@ const CollectionHistory: React.FC = () => {
                     ))}
                     <TableRow className="bg-muted/50 font-bold">
                       <TableCell>TOTAL</TableCell>
-                      <TableCell className="text-center">{totalItemsSold}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(totalSales)}</TableCell>
+                      <TableCell className="text-center">{kpis.totalItemsSold}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(kpis.totalSales)}</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
@@ -397,7 +418,7 @@ const CollectionHistory: React.FC = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {sortedEntries.map((entry, index) => (
+                      {visibleEntries.map((entry, index) => (
                         <TableRow key={entry.id} className="table-row">
                           <TableCell>
                             {index === 0 ? (
@@ -448,6 +469,21 @@ const CollectionHistory: React.FC = () => {
                     </TableBody>
                   </Table>
                 </div>
+
+                {sortedEntries.length > visibleRows && (
+                  <div className="p-4 border-t border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <p className="text-sm text-muted-foreground">
+                      Showing <span className="font-medium text-foreground">{visibleEntries.length}</span> of{' '}
+                      <span className="font-medium text-foreground">{sortedEntries.length}</span>
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => setVisibleRows((v) => Math.min(v + ROWS_STEP, sortedEntries.length))}
+                    >
+                      Load more
+                    </Button>
+                  </div>
+                )}
               </div>
             </>
           ) : (
@@ -541,7 +577,7 @@ const CollectionHistory: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {branchData.entries.map((entry) => (
+                    {branchData.entries.slice(0, 50).map((entry) => (
                       <TableRow key={entry.id} className="table-row">
                         <TableCell className="text-sm">{formatDate(entry.date)}</TableCell>
                         <TableCell className="text-sm font-medium">{entry.name}</TableCell>
@@ -556,6 +592,13 @@ const CollectionHistory: React.FC = () => {
                         </TableCell>
                       </TableRow>
                     ))}
+                    {branchData.entries.length > 50 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-3">
+                          ... and {branchData.entries.length - 50} more items
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>

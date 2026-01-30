@@ -50,17 +50,8 @@ const STORAGE_KEY = 'extra-area-reports';
 
 const ExtraAreaReport: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = React.useState(new Date());
-  const [entries, setEntries] = React.useState<ExtraAreaEntry[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  });
+  const [entries, setEntries] = React.useState<ExtraAreaEntry[]>([]);
+  const [isLoaded, setIsLoaded] = React.useState(false);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editingEntry, setEditingEntry] = React.useState<ExtraAreaEntry | null>(null);
   const [photoGalleryOpen, setPhotoGalleryOpen] = React.useState(false);
@@ -87,10 +78,31 @@ const ExtraAreaReport: React.FC = () => {
   const loiRef = React.useRef<HTMLInputElement>(null);
   const msasRef = React.useRef<HTMLInputElement>(null);
 
-  // Save to localStorage whenever entries change
+  // Load from localStorage on mount (async to avoid blocking)
   React.useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-  }, [entries]);
+    const loadData = async () => {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          setEntries(parsed);
+        }
+      } catch {
+        // ignore parse errors
+      }
+      setIsLoaded(true);
+    };
+    loadData();
+  }, []);
+
+  // Save to localStorage whenever entries change (debounced)
+  React.useEffect(() => {
+    if (!isLoaded) return;
+    const timeout = setTimeout(() => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [entries, isLoaded]);
 
   const resetForm = () => {
     setFormData({
