@@ -108,11 +108,6 @@ export const importFromExcel = async (file: File, options?: ImportOptions): Prom
       raw: false,
     }) as any[];
 
-    console.log('Excel parsed rows:', jsonData.length);
-    if (jsonData.length > 0) {
-      console.log('First row sample:', jsonData[0]);
-    }
-
     const errors: string[] = [];
     const entries: Partial<SalesEntry>[] = [];
 
