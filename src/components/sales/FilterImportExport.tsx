@@ -104,9 +104,14 @@ export const FilterImportExport: React.FC<FilterImportExportProps> = ({
       }
     } catch (error) {
       console.error('Import error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to import file.';
+      const isQuotaError = errorMessage.toLowerCase().includes('quota') || errorMessage.toLowerCase().includes('storage');
+      
       toast({
-        title: 'Import error',
-        description: error instanceof Error ? error.message : 'Failed to import file. Please check the format.',
+        title: isQuotaError ? 'Storage limit reached' : 'Import error',
+        description: isQuotaError 
+          ? 'The file is too large. Try clearing existing data first using "Clear All" button, or import fewer entries.'
+          : errorMessage,
         variant: 'destructive',
       });
     } finally {
