@@ -4,6 +4,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { SectionCard } from '@/components/sales/SectionCard';
 import { EmptyState } from '@/components/sales/EmptyState';
+import { TablePagination } from '@/components/ui/TablePagination';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,8 +36,7 @@ import { SalesEntry } from '@/types/sales';
 // Fixed 4 categories only
 const ALLOWED_CATEGORIES = ['MHB', 'MLP', 'MSH', 'MUM'] as const;
 
-const INITIAL_ROWS = 200;
-const ROWS_STEP = 200;
+const ITEMS_PER_PAGE = 50;
 
 interface CategoryBreakdownDialog {
   open: boolean;
@@ -63,7 +63,7 @@ const CollectionHistory: React.FC = () => {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedBranch, setSelectedBranch] = React.useState<string>('all');
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
-  const [visibleRows, setVisibleRows] = React.useState(INITIAL_ROWS);
+  const [currentPage, setCurrentPage] = React.useState(1);
   const [categoryDialog, setCategoryDialog] = React.useState<CategoryBreakdownDialog>({
     open: false,
     category: '',
@@ -110,9 +110,9 @@ const CollectionHistory: React.FC = () => {
     });
   }, [monthEntries, normalizedSearch, selectedBranch, selectedCategory]);
 
-  // Reset visible rows when filters change
+  // Reset page when filters change
   React.useEffect(() => {
-    setVisibleRows(INITIAL_ROWS);
+    setCurrentPage(1);
   }, [selectedMonth, selectedBranch, selectedCategory, normalizedSearch]);
 
   // Sort entries by amount (highest to lowest)
@@ -120,11 +120,12 @@ const CollectionHistory: React.FC = () => {
     return [...filteredEntries].sort((a, b) => b.amount - a.amount);
   }, [filteredEntries]);
 
-  // Visible entries for pagination
-  const visibleEntries = React.useMemo(
-    () => sortedEntries.slice(0, visibleRows),
-    [sortedEntries, visibleRows]
-  );
+  // Pagination
+  const totalPages = Math.ceil(sortedEntries.length / ITEMS_PER_PAGE);
+  const paginatedEntries = React.useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return sortedEntries.slice(start, start + ITEMS_PER_PAGE);
+  }, [sortedEntries, currentPage]);
 
   // Calculate totals efficiently
   const kpis = React.useMemo(() => {
@@ -418,71 +419,70 @@ const CollectionHistory: React.FC = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {visibleEntries.map((entry, index) => (
-                        <TableRow key={entry.id} className="table-row">
-                          <TableCell>
-                            {index === 0 ? (
-                              <div className="w-6 h-6 rounded-full bg-warning flex items-center justify-center">
-                                <span className="text-warning-foreground text-xs font-bold">1</span>
-                              </div>
-                            ) : (
-                              <span className="text-sm text-muted-foreground">{index + 1}</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            {formatDate(entry.date)}
-                          </TableCell>
-                          <TableCell className="text-sm font-medium">
-                            {entry.name}
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">
-                            {entry.description || '-'}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="font-medium">
-                              {entry.category}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm">{entry.branch}</TableCell>
-                          <TableCell className="text-center text-sm">{entry.qty}</TableCell>
-                          <TableCell className="text-right text-sm">
-                            {formatCurrency(entry.price)}
-                          </TableCell>
-                          <TableCell className="text-center text-sm">
-                            {entry.discountPercent}%
-                          </TableCell>
-                          <TableCell className="text-right font-semibold text-primary">
-                            {formatCurrency(entry.amount)}
-                          </TableCell>
-                          <TableCell className="w-[50px]">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                              onClick={() => handleDeleteEntry(entry.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {paginatedEntries.map((entry, index) => {
+                        const globalIndex = (currentPage - 1) * ITEMS_PER_PAGE + index;
+                        return (
+                          <TableRow key={entry.id} className="table-row">
+                            <TableCell>
+                              {globalIndex === 0 ? (
+                                <div className="w-6 h-6 rounded-full bg-warning flex items-center justify-center">
+                                  <span className="text-warning-foreground text-xs font-bold">1</span>
+                                </div>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">{globalIndex + 1}</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {formatDate(entry.date)}
+                            </TableCell>
+                            <TableCell className="text-sm font-medium">
+                              {entry.name}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">
+                              {entry.description || '-'}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="font-medium">
+                                {entry.category}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm">{entry.branch}</TableCell>
+                            <TableCell className="text-center text-sm">{entry.qty}</TableCell>
+                            <TableCell className="text-right text-sm">
+                              {formatCurrency(entry.price)}
+                            </TableCell>
+                            <TableCell className="text-center text-sm">
+                              {entry.discountPercent}%
+                            </TableCell>
+                            <TableCell className="text-right font-semibold text-primary">
+                              {formatCurrency(entry.amount)}
+                            </TableCell>
+                            <TableCell className="w-[50px]">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                onClick={() => handleDeleteEntry(entry.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
 
-                {sortedEntries.length > visibleRows && (
-                  <div className="p-4 border-t border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <p className="text-sm text-muted-foreground">
-                      Showing <span className="font-medium text-foreground">{visibleEntries.length}</span> of{' '}
-                      <span className="font-medium text-foreground">{sortedEntries.length}</span>
-                    </p>
-                    <Button
-                      variant="outline"
-                      onClick={() => setVisibleRows((v) => Math.min(v + ROWS_STEP, sortedEntries.length))}
-                    >
-                      Load more
-                    </Button>
-                  </div>
+                {totalPages > 1 && (
+                  <TablePagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                    totalItems={sortedEntries.length}
+                    itemsPerPage={ITEMS_PER_PAGE}
+                    className="px-5 border-t border-border"
+                  />
                 )}
               </div>
             </>

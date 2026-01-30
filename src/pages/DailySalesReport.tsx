@@ -7,6 +7,8 @@ import { useSalesStore } from '@/hooks/useSalesStore';
 import { SalesEntry, DateRange } from '@/types/sales';
 import { toast } from '@/hooks/use-toast';
 
+const ITEMS_PER_PAGE = 50;
+
 const DailySalesReport: React.FC = () => {
   const { 
     selectedMonth, 
@@ -23,6 +25,7 @@ const DailySalesReport: React.FC = () => {
     from: undefined,
     to: undefined,
   });
+  const [currentPage, setCurrentPage] = React.useState(1);
 
   const monthEntries = React.useMemo(() => {
     let filtered = getEntriesForMonth(selectedMonth);
@@ -36,6 +39,17 @@ const DailySalesReport: React.FC = () => {
     
     return filtered;
   }, [getEntriesForMonth, selectedMonth, dateRange]);
+
+  // Reset page when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedMonth, dateRange]);
+
+  const totalPages = Math.ceil(monthEntries.length / ITEMS_PER_PAGE);
+  const paginatedEntries = React.useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return monthEntries.slice(start, start + ITEMS_PER_PAGE);
+  }, [monthEntries, currentPage]);
 
   const handleImport = async (importedEntries: SalesEntry[]) => {
     await addEntriesBatch(importedEntries);
@@ -81,8 +95,13 @@ const DailySalesReport: React.FC = () => {
           />
           
           <SalesEntryTable
-            entries={monthEntries}
+            entries={paginatedEntries}
             onDelete={handleDelete}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={monthEntries.length}
+            onPageChange={setCurrentPage}
+            itemsPerPage={ITEMS_PER_PAGE}
           />
         </div>
       </div>
