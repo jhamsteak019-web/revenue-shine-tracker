@@ -6,16 +6,17 @@ import { SalesEntryTable } from '@/components/sales/SalesEntryTable';
 import { useSalesStore } from '@/hooks/useSalesStore';
 import { SalesEntry, DateRange } from '@/types/sales';
 import { toast } from '@/hooks/use-toast';
+
 const DailySalesReport: React.FC = () => {
   const { 
-    entries, 
     selectedMonth, 
     setSelectedMonth, 
-    addEntry, 
-    addEntries, 
+    addEntriesBatch, 
     removeEntry, 
     clearAllEntries,
-    getEntriesForMonth 
+    getEntriesForMonth,
+    isImporting,
+    importProgress,
   } = useSalesStore();
 
   const [dateRange, setDateRange] = React.useState<DateRange>({
@@ -36,9 +37,10 @@ const DailySalesReport: React.FC = () => {
     return filtered;
   }, [getEntriesForMonth, selectedMonth, dateRange]);
 
-  const handleImport = (importedEntries: SalesEntry[]) => {
-    addEntries(importedEntries);
+  const handleImport = async (importedEntries: SalesEntry[]) => {
+    await addEntriesBatch(importedEntries);
   };
+
   const handleDelete = (id: string) => {
     removeEntry(id);
     toast({
@@ -74,6 +76,8 @@ const DailySalesReport: React.FC = () => {
             entries={monthEntries}
             onImport={handleImport}
             onClearAll={handleClearAll}
+            isImporting={isImporting}
+            importProgress={importProgress}
           />
           
           <SalesEntryTable
