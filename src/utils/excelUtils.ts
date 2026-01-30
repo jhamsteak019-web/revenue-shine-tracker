@@ -81,10 +81,16 @@ export const importFromExcel = (file: File, options?: ImportOptions): Promise<Im
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
+        // Support both .xlsx and .xls formats
+        const workbook = XLSX.read(data, { 
+          type: 'array',
+          cellDates: true,
+          cellNF: false,
+          cellText: false,
+        });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
 
         const errors: string[] = [];
         const entries: Partial<SalesEntry>[] = [];
@@ -97,19 +103,19 @@ export const importFromExcel = (file: File, options?: ImportOptions): Promise<Im
         jsonData.forEach((row: any, index: number) => {
           const rowNum = index + 2; // Account for header row
           
-          // Map column names based on the actual Excel format
-          const name = row['Name'] || row['name'] || '';
-          const product = row['Product'] || row['product'] || '';
-          const branch = row['Branch'] || row['branch'] || '';
-          const qty = Number(row['Quantity'] || row['QTY'] || row['qty'] || 1);
-          const price = Number(row['Price'] || row['price'] || 0);
-          const discountPercent = Number(row['Discount'] || row['Discount %'] || row['discount'] || 0);
-          const amount = Number(row['Amount'] || row['amount'] || 0);
-          const dayValue = row['Date'] || row['date'];
+          // Map column names based on the actual Excel format (case-insensitive)
+          const name = String(row['Name'] || row['name'] || row['NAME'] || '').trim();
+          const product = String(row['Product'] || row['product'] || row['PRODUCT'] || '').trim();
+          const branch = String(row['Branch'] || row['branch'] || row['BRANCH'] || '').trim();
+          const qty = Number(row['Quantity'] || row['QTY'] || row['qty'] || row['QUANTITY'] || 1);
+          const price = Number(row['Price'] || row['price'] || row['PRICE'] || 0);
+          const discountPercent = Number(row['Discount'] || row['Discount %'] || row['discount'] || row['DISCOUNT'] || 0);
+          const amount = Number(row['Amount'] || row['amount'] || row['AMOUNT'] || 0);
+          const dayValue = row['Date'] || row['date'] || row['DATE'];
 
           // Parse day number from Date column (can be "1", "2", or "1 (1 MLP NS)")
           let dayNum = 1;
-          if (dayValue) {
+          if (dayValue !== undefined && dayValue !== null && dayValue !== '') {
             const dayStr = String(dayValue).split(' ')[0]; // Take first part before space
             const parsed = parseInt(dayStr, 10);
             if (!isNaN(parsed) && parsed >= 1 && parsed <= 31) {
@@ -124,6 +130,11 @@ export const importFromExcel = (file: File, options?: ImportOptions): Promise<Im
           // Auto-detect category from product name
           const category = extractCategoryFromProduct(product);
 
+          // Skip rows without essential data
+          if (!name && !product && !branch) {
+            return; // Skip empty rows silently
+          }
+
           // Validate required fields
           if (!name) errors.push(`Row ${rowNum}: Missing name`);
           if (!product) errors.push(`Row ${rowNum}: Missing product`);
@@ -131,16 +142,16 @@ export const importFromExcel = (file: File, options?: ImportOptions): Promise<Im
 
           if (name && product && branch) {
             entries.push({
-              id: `import-${Date.now()}-${index}`,
+              id: `import-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
               date: dateStr,
               upc: '', // No UPC in this format
               name,
               description: product,
-              qty,
+              qty: isNaN(qty) ? 1 : qty,
               category,
-              price,
-              discountPercent,
-              amount: amount || Math.round(price * qty * (1 - discountPercent / 100) * 100) / 100,
+              price: isNaN(price) ? 0 : price,
+              discountPercent: isNaN(discountPercent) ? 0 : discountPercent,
+              amount: isNaN(amount) ? Math.round(price * qty * (1 - discountPercent / 100) * 100) / 100 : amount,
               branch,
               createdAt: new Date().toISOString(),
             });
@@ -150,13 +161,14 @@ export const importFromExcel = (file: File, options?: ImportOptions): Promise<Im
         resolve({
           success: entries.length > 0,
           data: entries,
-          errors,
+          errors: errors.slice(0, 10), // Limit errors to first 10
         });
       } catch (error) {
+        console.error('Excel import error:', error);
         resolve({
           success: false,
           data: [],
-          errors: ['Failed to parse Excel file. Please check the format.'],
+          errors: [`Failed to parse Excel file: ${error instanceof Error ? error.message : 'Unknown error'}`],
         });
       }
     };
