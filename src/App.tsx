@@ -15,6 +15,7 @@ import SalesHistory from "./pages/SalesHistory";
 import CollectionHistory from "./pages/CollectionHistory";
 import CollectionItems from "./pages/CollectionItems";
 import ExtraAreaReport from "./pages/ExtraAreaReport";
+import ExtraAreaCalendarPage from "./pages/ExtraAreaCalendar";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -62,6 +63,11 @@ const App = () => (
             <Route path="/extra-area" element={
               <ProtectedRoute>
                 <ExtraAreaReport />
+              </ProtectedRoute>
+            } />
+            <Route path="/extra-area-calendar" element={
+              <ProtectedRoute>
+                <ExtraAreaCalendarPage />
               </ProtectedRoute>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

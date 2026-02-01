@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { FileText, History, Menu, Wallet, MapPin, LogOut } from 'lucide-react';
+import { FileText, History, Menu, Wallet, MapPin, CalendarDays, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -11,6 +11,7 @@ const navItems = [
   { to: '/history', label: 'Sales History', icon: History },
   { to: '/collection-history', label: 'Collection History', icon: Wallet },
   { to: '/extra-area', label: 'Extra Area', icon: MapPin },
+  { to: '/extra-area-calendar', label: 'EA Calendar', icon: CalendarDays },
 ];
 
 const NavLinks = ({ onClick }: { onClick?: () => void }) => (
