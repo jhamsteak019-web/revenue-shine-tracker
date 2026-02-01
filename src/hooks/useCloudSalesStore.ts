@@ -13,7 +13,7 @@ export const useCloudSalesStore = () => {
   const [importProgress, setImportProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch entries from database
+  // Fetch ALL entries from database using pagination (no 1000 row limit)
   const fetchEntries = useCallback(async () => {
     if (!user) {
       setEntries([]);
@@ -23,15 +23,32 @@ export const useCloudSalesStore = () => {
 
     try {
       setLoading(true);
-      const { data, error: fetchError } = await supabase
-        .from('sales_entries')
-        .select('*')
-        .order('date', { ascending: false });
+      const PAGE_SIZE = 1000;
+      let allData: any[] = [];
+      let from = 0;
+      let hasMore = true;
 
-      if (fetchError) throw fetchError;
+      // Paginate through all entries
+      while (hasMore) {
+        const { data, error: fetchError } = await supabase
+          .from('sales_entries')
+          .select('*')
+          .order('date', { ascending: false })
+          .range(from, from + PAGE_SIZE - 1);
+
+        if (fetchError) throw fetchError;
+
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          from += PAGE_SIZE;
+          hasMore = data.length === PAGE_SIZE;
+        } else {
+          hasMore = false;
+        }
+      }
 
       // Map database fields to SalesEntry format
-      const mappedEntries: SalesEntry[] = (data || []).map((row) => ({
+      const mappedEntries: SalesEntry[] = allData.map((row) => ({
         id: row.id,
         date: row.date,
         upc: row.upc,
