@@ -166,8 +166,9 @@ export const importFromExcel = async (file: File, options?: ImportOptions): Prom
       const entryDate = new Date(baseYear, baseMonth, dayNum);
       const dateStr = entryDate.toISOString().split('T')[0];
 
-      // Auto-detect category from product name
-      const category = extractCategoryFromProduct(product);
+      // Auto-detect category from NAME column (not product) for 2025 format
+      // Example: "2025MCLHB5502009-13" → position 5='M', position 8-9='HB' → "MHB"
+      const category = extractCategoryFromProduct(name);
 
       // Skip rows without essential data
       if (!name && !product && !branch) {
