@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      branch_calendar_tasks: {
+        Row: {
+          branch: string
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          task_date: string
+          task_type: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          branch: string
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          task_date: string
+          task_type?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          branch?: string
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          task_date?: string
+          task_type?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       extra_area_entries: {
         Row: {
           branch: string

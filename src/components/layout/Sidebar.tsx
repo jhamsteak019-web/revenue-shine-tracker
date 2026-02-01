@@ -11,7 +11,7 @@ const navItems = [
   { to: '/history', label: 'Sales History', icon: History },
   { to: '/collection-history', label: 'Collection History', icon: Wallet },
   { to: '/extra-area', label: 'Extra Area', icon: MapPin },
-  { to: '/extra-area-calendar', label: 'EA Calendar', icon: CalendarDays },
+  { to: '/branch-calendar', label: 'Branch Calendar', icon: CalendarDays },
 ];
 
 const NavLinks = ({ onClick }: { onClick?: () => void }) => (
