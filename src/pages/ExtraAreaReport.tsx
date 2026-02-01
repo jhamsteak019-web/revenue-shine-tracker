@@ -23,13 +23,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, ImagePlus, X, MapPin, Calendar, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, ImagePlus, X, MapPin, Calendar, Loader2, LayoutGrid, List } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/utils/formatters';
 import { TablePagination } from '@/components/ui/TablePagination';
 import { format } from 'date-fns';
 import { useExtraAreaStore, ExtraAreaEntry } from '@/hooks/useExtraAreaStore';
 import { useAuth } from '@/contexts/AuthContext';
+import { ExtraAreaCalendar } from '@/components/extra-area/ExtraAreaCalendar';
 
 const ITEMS_PER_PAGE = 50;
 
@@ -65,6 +66,7 @@ const ExtraAreaReport: React.FC = () => {
   const [selectedEntryPhotos, setSelectedEntryPhotos] = React.useState<ExtraAreaEntry | null>(null);
   const [currentPage, setCurrentPage] = React.useState(1);
   const [isSaving, setIsSaving] = React.useState(false);
+  const [viewMode, setViewMode] = React.useState<'calendar' | 'table'>('calendar');
 
   // Form state
   const [formData, setFormData] = React.useState({
@@ -336,25 +338,61 @@ const ExtraAreaReport: React.FC = () => {
 
       <div id="extra-area-content" className="flex-1 overflow-auto p-4 lg:p-6">
         <div className="max-w-7xl mx-auto space-y-4">
-          {/* Action Buttons */}
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" className="gap-2" onClick={handleAddNew}>
-              <Plus className="h-4 w-4" />
-              Add Report
-            </Button>
-            <Button 
-              variant="destructive" 
-              size="sm" 
-              className="gap-2"
-              onClick={handleClearAll}
-              disabled={entries.length === 0}
-            >
-              <Trash2 className="h-4 w-4" />
-              Clear All
-            </Button>
+          {/* Action Buttons with View Toggle */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" className="gap-2" onClick={handleAddNew}>
+                <Plus className="h-4 w-4" />
+                Add Report
+              </Button>
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                className="gap-2"
+                onClick={handleClearAll}
+                disabled={entries.length === 0}
+              >
+                <Trash2 className="h-4 w-4" />
+                Clear All
+              </Button>
+            </div>
+
+            {/* View Toggle */}
+            <div className="flex items-center rounded-lg border border-border overflow-hidden">
+              <Button
+                variant={viewMode === 'calendar' ? 'default' : 'ghost'}
+                size="sm"
+                className="rounded-none gap-2"
+                onClick={() => setViewMode('calendar')}
+              >
+                <LayoutGrid className="h-4 w-4" />
+                Calendar
+              </Button>
+              <Button
+                variant={viewMode === 'table' ? 'default' : 'ghost'}
+                size="sm"
+                className="rounded-none gap-2"
+                onClick={() => setViewMode('table')}
+              >
+                <List className="h-4 w-4" />
+                Table
+              </Button>
+            </div>
           </div>
 
-          {/* Entries Table - Full Width Expanded Card */}
+          {/* Calendar View */}
+          {viewMode === 'calendar' && (
+            <ExtraAreaCalendar
+              entries={entries}
+              selectedMonth={selectedMonth}
+              onMonthChange={setSelectedMonth}
+              onAddNew={handleAddNew}
+              onEntryClick={handleEdit}
+            />
+          )}
+
+          {/* Table View - Full Width Expanded Card */}
+          {viewMode === 'table' && (
           <div className="w-full bg-card rounded-2xl shadow-lg border border-border/50 overflow-hidden">
             {/* Card Header */}
             <div className="px-8 py-6 border-b border-border/50 bg-gradient-to-r from-muted/30 to-transparent">
@@ -526,6 +564,7 @@ const ExtraAreaReport: React.FC = () => {
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
 
