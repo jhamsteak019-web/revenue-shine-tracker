@@ -441,16 +441,12 @@ const BranchCalendar: React.FC = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="branch">Branch *</Label>
-                <Select value={formData.branch} onValueChange={(v) => setFormData({ ...formData, branch: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select branch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BRANCHES.map((b) => (
-                      <SelectItem key={b} value={b}>{b}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="branch"
+                  placeholder="Enter branch code"
+                  value={formData.branch}
+                  onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="taskDate">Date *</Label>
