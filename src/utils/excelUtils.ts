@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { SalesEntry } from '@/types/sales';
+import { parseDayNumber, parseLooseNumber } from '@/utils/excel/parse';
 
 export const exportToExcel = (data: SalesEntry[], filename: string = 'sales-data') => {
   const exportData = data.map(entry => ({
@@ -136,30 +137,25 @@ export const importFromExcel = async (file: File, options?: ImportOptions): Prom
       const name = String(row['Name'] || row['name'] || row['NAME'] || '').trim();
       const product = String(row['Product'] || row['product'] || row['PRODUCT'] || '').trim();
       const branch = String(row['Branch'] || row['branch'] || row['BRANCH'] || '').trim();
-      const qty = Number(row['Quantity'] || row['QTY'] || row['qty'] || row['QUANTITY'] || 1);
-      const price = Number(row['Price'] || row['price'] || row['PRICE'] || 0);
-      const discountPercent = Number(row['Discount'] || row['Discount %'] || row['discount'] || row['DISCOUNT'] || 0);
-      const amount = Number(row['Amount'] || row['amount'] || row['AMOUNT'] || 0);
+      const qtyRaw = row['Quantity'] || row['QTY'] || row['qty'] || row['QUANTITY'] || 1;
+      const priceRaw = row['Price'] || row['price'] || row['PRICE'] || 0;
+      const discountRaw = row['Discount'] || row['Discount %'] || row['discount'] || row['DISCOUNT'] || 0;
+      const amountRaw = row['Amount'] || row['amount'] || row['AMOUNT'] || 0;
+
+      const qtyNum = parseLooseNumber(qtyRaw);
+      const priceNum = parseLooseNumber(priceRaw);
+      const discountNum = parseLooseNumber(discountRaw);
+      const amountNum = parseLooseNumber(amountRaw);
       const dayValue = row['Date'] || row['date'] || row['DATE'];
 
-      // Parse day number from Date column - MUST be a pure number only
-      // Skip rows where Date has letters or extra text (e.g., "9 (50% ONLY)")
-      let dayNum: number | null = null;
-      if (dayValue !== undefined && dayValue !== null && dayValue !== '') {
-        const dayStr = String(dayValue).trim();
-        
-        // Check if the value is a pure number (no letters, no extra characters)
-        if (/^\d+$/.test(dayStr)) {
-          const parsed = parseInt(dayStr, 10);
-          if (parsed >= 1 && parsed <= 31) {
-            dayNum = parsed;
-          }
-        }
-      }
-      
-      // Skip row if Date is not a valid pure number
+      // Parse day number from Date column.
+      // Accepts pure numbers and values that START with a day number (e.g. "9 (EA)").
+      const dayNum = parseDayNumber(dayValue);
       if (dayNum === null) {
-        return; // Skip this row
+        if (dayValue !== undefined && dayValue !== null && String(dayValue).trim() !== '') {
+          errors.push(`Row ${rowNum}: Invalid Date value "${String(dayValue).trim()}" (skipped)`);
+        }
+        return;
       }
 
       // Create full date using base month/year + day from Excel
@@ -181,17 +177,24 @@ export const importFromExcel = async (file: File, options?: ImportOptions): Prom
       if (!branch) errors.push(`Row ${rowNum}: Missing branch`);
 
       if (name && product && branch) {
+        const safeQty = Number.isFinite(qtyNum) && qtyNum > 0 ? Math.round(qtyNum) : 1;
+        const safePrice = Number.isFinite(priceNum) ? priceNum : 0;
+        const safeDiscount = Number.isFinite(discountNum) ? discountNum : 0;
+
+        const computedAmount = Math.round(safePrice * safeQty * (1 - safeDiscount / 100) * 100) / 100;
+        const safeAmount = Number.isFinite(amountNum) && amountNum !== 0 ? amountNum : computedAmount;
+
         entries.push({
           id: `import-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
           date: dateStr,
           upc: '',
           name,
           description: product,
-          qty: isNaN(qty) ? 1 : qty,
+          qty: safeQty,
           category,
-          price: isNaN(price) ? 0 : price,
-          discountPercent: isNaN(discountPercent) ? 0 : discountPercent,
-          amount: isNaN(amount) ? Math.round(price * qty * (1 - discountPercent / 100) * 100) / 100 : amount,
+          price: safePrice,
+          discountPercent: safeDiscount,
+          amount: safeAmount,
           branch,
           createdAt: new Date().toISOString(),
         });
