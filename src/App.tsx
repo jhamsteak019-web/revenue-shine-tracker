@@ -3,6 +3,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import Login from "./pages/Login";
 import DailySalesReport from "./pages/DailySalesReport";
 import SalesHistory from "./pages/SalesHistory";
 import CollectionHistory from "./pages/CollectionHistory";
@@ -18,15 +21,18 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<DailySalesReport />} />
-          <Route path="/history" element={<SalesHistory />} />
-          <Route path="/collection-history" element={<CollectionHistory />} />
-          <Route path="/collection-items" element={<CollectionItems />} />
-          <Route path="/extra-area" element={<ExtraAreaReport />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<ProtectedRoute><DailySalesReport /></ProtectedRoute>} />
+            <Route path="/history" element={<ProtectedRoute><SalesHistory /></ProtectedRoute>} />
+            <Route path="/collection-history" element={<ProtectedRoute><CollectionHistory /></ProtectedRoute>} />
+            <Route path="/collection-items" element={<ProtectedRoute><CollectionItems /></ProtectedRoute>} />
+            <Route path="/extra-area" element={<ProtectedRoute><ExtraAreaReport /></ProtectedRoute>} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

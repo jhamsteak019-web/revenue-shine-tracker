@@ -1,9 +1,10 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { FileText, History, Menu, Wallet, Package, MapPin } from 'lucide-react';
+import { FileText, History, Menu, Wallet, MapPin, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
   { to: '/', label: 'DSR', icon: FileText },
@@ -37,6 +38,11 @@ const NavLinks = ({ onClick }: { onClick?: () => void }) => (
 
 export const Sidebar: React.FC = () => {
   const [open, setOpen] = React.useState(false);
+  const { signOut, user } = useAuth();
+
+  const handleLogout = async () => {
+    await signOut();
+  };
 
   return (
     <>
@@ -56,9 +62,19 @@ export const Sidebar: React.FC = () => {
           <NavLinks />
         </nav>
         
-        <div className="mt-auto p-4 rounded-lg bg-white/10 text-white/80 text-xs">
-          <p className="font-medium text-white mb-1">Sales Monitoring v1.0</p>
-          <p>Track • Analyze • Report</p>
+        <div className="mt-auto space-y-3">
+          <div className="p-4 rounded-lg bg-white/10 text-white/80 text-xs">
+            <p className="font-medium text-white mb-1 truncate">{user?.email}</p>
+            <p className="text-white/60">Logged in</p>
+          </div>
+          <Button
+            variant="ghost"
+            onClick={handleLogout}
+            className="w-full text-white/80 hover:text-white hover:bg-white/10 justify-start gap-2"
+          >
+            <LogOut className="h-4 w-4" />
+            Logout
+          </Button>
         </div>
       </aside>
 
@@ -89,6 +105,20 @@ export const Sidebar: React.FC = () => {
             <nav className="flex flex-col gap-2">
               <NavLinks onClick={() => setOpen(false)} />
             </nav>
+            <div className="mt-auto pt-4 space-y-3">
+              <div className="p-3 rounded-lg bg-white/10 text-white/80 text-xs">
+                <p className="font-medium text-white mb-1 truncate">{user?.email}</p>
+                <p className="text-white/60">Logged in</p>
+              </div>
+              <Button
+                variant="ghost"
+                onClick={() => { setOpen(false); handleLogout(); }}
+                className="w-full text-white/80 hover:text-white hover:bg-white/10 justify-start gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
+            </div>
           </SheetContent>
         </Sheet>
       </div>
