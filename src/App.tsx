@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { SalesProvider } from "@/contexts/SalesContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -30,11 +31,39 @@ const App = () => (
             <Route path="/signup" element={<Signup />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/" element={<ProtectedRoute><DailySalesReport /></ProtectedRoute>} />
-            <Route path="/history" element={<ProtectedRoute><SalesHistory /></ProtectedRoute>} />
-            <Route path="/collection-history" element={<ProtectedRoute><CollectionHistory /></ProtectedRoute>} />
-            <Route path="/collection-items" element={<ProtectedRoute><CollectionItems /></ProtectedRoute>} />
-            <Route path="/extra-area" element={<ProtectedRoute><ExtraAreaReport /></ProtectedRoute>} />
+            <Route path="/" element={
+              <ProtectedRoute>
+                <SalesProvider>
+                  <DailySalesReport />
+                </SalesProvider>
+              </ProtectedRoute>
+            } />
+            <Route path="/history" element={
+              <ProtectedRoute>
+                <SalesProvider>
+                  <SalesHistory />
+                </SalesProvider>
+              </ProtectedRoute>
+            } />
+            <Route path="/collection-history" element={
+              <ProtectedRoute>
+                <SalesProvider>
+                  <CollectionHistory />
+                </SalesProvider>
+              </ProtectedRoute>
+            } />
+            <Route path="/collection-items" element={
+              <ProtectedRoute>
+                <SalesProvider>
+                  <CollectionItems />
+                </SalesProvider>
+              </ProtectedRoute>
+            } />
+            <Route path="/extra-area" element={
+              <ProtectedRoute>
+                <ExtraAreaReport />
+              </ProtectedRoute>
+            } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
