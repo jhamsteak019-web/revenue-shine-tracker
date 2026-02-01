@@ -23,10 +23,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, ImagePlus, X, MapPin } from 'lucide-react';
+import { Plus, Pencil, Trash2, ImagePlus, X, MapPin, Calendar } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/utils/formatters';
 import { TablePagination } from '@/components/ui/TablePagination';
+import { format } from 'date-fns';
 
 const ITEMS_PER_PAGE = 50;
 
@@ -36,6 +37,13 @@ interface PhotoGroup {
   msas: string[];
 }
 
+interface SalesPerCategory {
+  MHB: number;
+  MLP: number;
+  MSH: number;
+  MUM: number;
+}
+
 interface ExtraAreaEntry {
   id: string;
   branch: string;
@@ -43,7 +51,9 @@ interface ExtraAreaEntry {
   locationArea: string;
   rentalRate: number;
   noFixtures: number;
+  date: string;
   noDays: number;
+  sales: SalesPerCategory;
   photos: PhotoGroup;
   remarks: string;
   createdAt: string;
@@ -68,7 +78,12 @@ const ExtraAreaReport: React.FC = () => {
     locationArea: '',
     rentalRate: '',
     noFixtures: '',
+    date: '',
     noDays: '',
+    salesMHB: '',
+    salesMLP: '',
+    salesMSH: '',
+    salesMUM: '',
     remarks: '',
   });
   const [photos, setPhotos] = React.useState<PhotoGroup>({
@@ -89,7 +104,13 @@ const ExtraAreaReport: React.FC = () => {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
           const parsed = JSON.parse(saved);
-          setEntries(parsed);
+          // Migrate old entries that don't have sales field
+          const migrated = parsed.map((entry: any) => ({
+            ...entry,
+            date: entry.date || '',
+            sales: entry.sales || { MHB: 0, MLP: 0, MSH: 0, MUM: 0 },
+          }));
+          setEntries(migrated);
         }
       } catch {
         // ignore parse errors
@@ -115,7 +136,12 @@ const ExtraAreaReport: React.FC = () => {
       locationArea: '',
       rentalRate: '',
       noFixtures: '',
+      date: '',
       noDays: '',
+      salesMHB: '',
+      salesMLP: '',
+      salesMSH: '',
+      salesMUM: '',
       remarks: '',
     });
     setPhotos({ approvedBoss: [], loi: [], msas: [] });
@@ -134,7 +160,12 @@ const ExtraAreaReport: React.FC = () => {
       locationArea: entry.locationArea,
       rentalRate: entry.rentalRate.toString(),
       noFixtures: entry.noFixtures.toString(),
+      date: entry.date || '',
       noDays: entry.noDays.toString(),
+      salesMHB: (entry.sales?.MHB || 0).toString(),
+      salesMLP: (entry.sales?.MLP || 0).toString(),
+      salesMSH: (entry.sales?.MSH || 0).toString(),
+      salesMUM: (entry.sales?.MUM || 0).toString(),
       remarks: entry.remarks,
     });
     setPhotos(entry.photos);
@@ -188,6 +219,13 @@ const ExtraAreaReport: React.FC = () => {
       return;
     }
 
+    const salesData: SalesPerCategory = {
+      MHB: parseFloat(formData.salesMHB) || 0,
+      MLP: parseFloat(formData.salesMLP) || 0,
+      MSH: parseFloat(formData.salesMSH) || 0,
+      MUM: parseFloat(formData.salesMUM) || 0,
+    };
+
     if (editingEntry) {
       setEntries(entries.map(e => 
         e.id === editingEntry.id
@@ -198,7 +236,9 @@ const ExtraAreaReport: React.FC = () => {
               locationArea: formData.locationArea,
               rentalRate: parseFloat(formData.rentalRate) || 0,
               noFixtures: parseInt(formData.noFixtures) || 0,
+              date: formData.date,
               noDays: parseInt(formData.noDays) || 0,
+              sales: salesData,
               photos,
               remarks: formData.remarks,
             }
@@ -213,7 +253,9 @@ const ExtraAreaReport: React.FC = () => {
         locationArea: formData.locationArea,
         rentalRate: parseFloat(formData.rentalRate) || 0,
         noFixtures: parseInt(formData.noFixtures) || 0,
+        date: formData.date,
         noDays: parseInt(formData.noDays) || 0,
+        sales: salesData,
         photos,
         remarks: formData.remarks,
         createdAt: new Date().toISOString(),
@@ -288,6 +330,20 @@ const ExtraAreaReport: React.FC = () => {
     setPhotoGalleryOpen(true);
   };
 
+  const getTotalSales = (entry: ExtraAreaEntry) => {
+    const sales = entry.sales || { MHB: 0, MLP: 0, MSH: 0, MUM: 0 };
+    return sales.MHB + sales.MLP + sales.MSH + sales.MUM;
+  };
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '—';
+    try {
+      return format(new Date(dateStr), 'MMM dd, yyyy');
+    } catch {
+      return dateStr;
+    }
+  };
+
   // Pagination
   const totalPages = Math.ceil(entries.length / ITEMS_PER_PAGE);
   const paginatedEntries = React.useMemo(() => {
@@ -352,12 +408,14 @@ const ExtraAreaReport: React.FC = () => {
                     <TableRow className="bg-muted/40 border-b border-border/50 hover:bg-muted/40">
                       <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground">Branch</TableHead>
                       <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground">Category</TableHead>
-                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground min-w-[180px]">Location/Area</TableHead>
+                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground min-w-[160px]">Location/Area</TableHead>
                       <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right">Rental Rate</TableHead>
                       <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground text-center">Fixtures</TableHead>
+                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground text-center">Date</TableHead>
                       <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground text-center">Days</TableHead>
+                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right min-w-[140px]">Sales (Total)</TableHead>
                       <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground text-center min-w-[140px]">Photos</TableHead>
-                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground min-w-[160px]">Remarks</TableHead>
+                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground min-w-[140px]">Remarks</TableHead>
                       <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -391,10 +449,25 @@ const ExtraAreaReport: React.FC = () => {
                             {entry.noFixtures}
                           </span>
                         </TableCell>
+                        <TableCell className="py-5 px-6 text-center text-sm text-foreground/80">
+                          {formatDate(entry.date)}
+                        </TableCell>
                         <TableCell className="py-5 px-6 text-center">
                           <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-muted/50 font-semibold text-foreground">
                             {entry.noDays}
                           </span>
+                        </TableCell>
+                        <TableCell className="py-5 px-6 text-right">
+                          <div className="text-right">
+                            <span className="font-semibold text-foreground block">
+                              {formatCurrency(getTotalSales(entry))}
+                            </span>
+                            {getTotalSales(entry) > 0 && (
+                              <span className="text-xs text-muted-foreground block mt-0.5">
+                                MHB:{formatCurrency(entry.sales?.MHB || 0).replace('₱', '')} | MLP:{formatCurrency(entry.sales?.MLP || 0).replace('₱', '')}
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="py-5 px-6">
                           <button 
@@ -523,7 +596,7 @@ const ExtraAreaReport: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="rentalRate">Rental Rate/Charges</Label>
                 <Input
@@ -544,6 +617,21 @@ const ExtraAreaReport: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, noFixtures: e.target.value })}
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="date" className="flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5" />
+                  Date
+                </Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="noDays">No. Days</Label>
                 <Input
@@ -553,6 +641,53 @@ const ExtraAreaReport: React.FC = () => {
                   value={formData.noDays}
                   onChange={(e) => setFormData({ ...formData, noDays: e.target.value })}
                 />
+              </div>
+            </div>
+
+            {/* Sales per Category */}
+            <div className="border-t border-border pt-4 space-y-3">
+              <Label className="text-sm font-medium text-foreground">Sales per Category</Label>
+              <div className="grid grid-cols-4 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="salesMHB" className="text-xs text-muted-foreground">MHB</Label>
+                  <Input
+                    id="salesMHB"
+                    type="number"
+                    placeholder="0.00"
+                    value={formData.salesMHB}
+                    onChange={(e) => setFormData({ ...formData, salesMHB: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="salesMLP" className="text-xs text-muted-foreground">MLP</Label>
+                  <Input
+                    id="salesMLP"
+                    type="number"
+                    placeholder="0.00"
+                    value={formData.salesMLP}
+                    onChange={(e) => setFormData({ ...formData, salesMLP: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="salesMSH" className="text-xs text-muted-foreground">MSH</Label>
+                  <Input
+                    id="salesMSH"
+                    type="number"
+                    placeholder="0.00"
+                    value={formData.salesMSH}
+                    onChange={(e) => setFormData({ ...formData, salesMSH: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="salesMUM" className="text-xs text-muted-foreground">MUM</Label>
+                  <Input
+                    id="salesMUM"
+                    type="number"
+                    placeholder="0.00"
+                    value={formData.salesMUM}
+                    onChange={(e) => setFormData({ ...formData, salesMUM: e.target.value })}
+                  />
+                </div>
               </div>
             </div>
 
