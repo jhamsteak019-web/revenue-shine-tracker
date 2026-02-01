@@ -33,7 +33,7 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [error, setError] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
 
-  // Fetch entries from database
+  // Fetch ALL entries from database using pagination (Supabase has 1000 row limit per query)
   const fetchEntries = useCallback(async () => {
     if (!user) {
       setEntries([]);
@@ -43,14 +43,31 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     try {
       setLoading(true);
-      const { data, error: fetchError } = await supabase
-        .from('sales_entries')
-        .select('*')
-        .order('date', { ascending: false });
+      const PAGE_SIZE = 1000;
+      let allData: any[] = [];
+      let from = 0;
+      let hasMore = true;
 
-      if (fetchError) throw fetchError;
+      // Paginate through all entries
+      while (hasMore) {
+        const { data, error: fetchError } = await supabase
+          .from('sales_entries')
+          .select('*')
+          .order('date', { ascending: false })
+          .range(from, from + PAGE_SIZE - 1);
 
-      const mappedEntries: SalesEntry[] = (data || []).map((row) => ({
+        if (fetchError) throw fetchError;
+
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          from += PAGE_SIZE;
+          hasMore = data.length === PAGE_SIZE;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      const mappedEntries: SalesEntry[] = allData.map((row) => ({
         id: row.id,
         date: row.date,
         upc: row.upc,
