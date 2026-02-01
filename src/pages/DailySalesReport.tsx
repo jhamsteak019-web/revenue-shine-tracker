@@ -3,9 +3,10 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { FilterImportExport } from '@/components/sales/FilterImportExport';
 import { SalesEntryTable } from '@/components/sales/SalesEntryTable';
-import { useSalesStore } from '@/hooks/useSalesStore';
+import { useSales } from '@/contexts/SalesContext';
 import { SalesEntry, DateRange } from '@/types/sales';
 import { toast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 50;
 
@@ -19,7 +20,8 @@ const DailySalesReport: React.FC = () => {
     getEntriesForMonth,
     isImporting,
     importProgress,
-  } = useSalesStore();
+    loading,
+  } = useSales();
 
   const [dateRange, setDateRange] = React.useState<DateRange>({
     from: undefined,
@@ -55,21 +57,34 @@ const DailySalesReport: React.FC = () => {
     await addEntriesBatch(importedEntries);
   };
 
-  const handleDelete = (id: string) => {
-    removeEntry(id);
+  const handleDelete = async (id: string) => {
+    await removeEntry(id);
     toast({
       title: 'Entry deleted',
       description: 'Sales entry has been removed.',
     });
   };
 
-  const handleClearAll = () => {
-    clearAllEntries();
+  const handleClearAll = async () => {
+    await clearAllEntries();
     toast({
       title: 'All entries cleared',
       description: 'All sales data has been removed.',
     });
   };
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Loading sales data...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>

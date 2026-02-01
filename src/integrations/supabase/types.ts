@@ -14,7 +14,117 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      extra_area_entries: {
+        Row: {
+          branch: string
+          category: string
+          created_at: string
+          entry_date: string
+          id: string
+          location_area: string
+          no_days: number
+          no_fixtures: string | null
+          photos_approved_boss: string[] | null
+          photos_loi: string[] | null
+          photos_msas: string[] | null
+          remarks: string | null
+          rental_rate: number
+          sales_mhb: number
+          sales_mlp: number
+          sales_msh: number
+          sales_mum: number
+          user_id: string
+        }
+        Insert: {
+          branch: string
+          category: string
+          created_at?: string
+          entry_date: string
+          id?: string
+          location_area: string
+          no_days?: number
+          no_fixtures?: string | null
+          photos_approved_boss?: string[] | null
+          photos_loi?: string[] | null
+          photos_msas?: string[] | null
+          remarks?: string | null
+          rental_rate?: number
+          sales_mhb?: number
+          sales_mlp?: number
+          sales_msh?: number
+          sales_mum?: number
+          user_id: string
+        }
+        Update: {
+          branch?: string
+          category?: string
+          created_at?: string
+          entry_date?: string
+          id?: string
+          location_area?: string
+          no_days?: number
+          no_fixtures?: string | null
+          photos_approved_boss?: string[] | null
+          photos_loi?: string[] | null
+          photos_msas?: string[] | null
+          remarks?: string | null
+          rental_rate?: number
+          sales_mhb?: number
+          sales_mlp?: number
+          sales_msh?: number
+          sales_mum?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      sales_entries: {
+        Row: {
+          amount: number
+          branch: string
+          category: string
+          created_at: string
+          date: string
+          description: string | null
+          discount_percent: number
+          id: string
+          name: string
+          price: number
+          qty: number
+          upc: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          branch: string
+          category: string
+          created_at?: string
+          date: string
+          description?: string | null
+          discount_percent?: number
+          id?: string
+          name: string
+          price?: number
+          qty?: number
+          upc: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          branch?: string
+          category?: string
+          created_at?: string
+          date?: string
+          description?: string | null
+          discount_percent?: number
+          id?: string
+          name?: string
+          price?: number
+          qty?: number
+          upc?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

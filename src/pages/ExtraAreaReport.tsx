@@ -23,11 +23,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, ImagePlus, X, MapPin, Calendar } from 'lucide-react';
+import { Plus, Pencil, Trash2, ImagePlus, X, MapPin, Calendar, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/utils/formatters';
 import { TablePagination } from '@/components/ui/TablePagination';
 import { format } from 'date-fns';
+import { useExtraAreaStore, ExtraAreaEntry } from '@/hooks/useExtraAreaStore';
+import { useAuth } from '@/contexts/AuthContext';
 
 const ITEMS_PER_PAGE = 50;
 
@@ -44,32 +46,25 @@ interface SalesPerCategory {
   MUM: number;
 }
 
-interface ExtraAreaEntry {
-  id: string;
-  branch: string;
-  category: string;
-  locationArea: string;
-  rentalRate: number;
-  noFixtures: string;
-  date: string;
-  noDays: number;
-  sales: SalesPerCategory;
-  photos: PhotoGroup;
-  remarks: string;
-  createdAt: string;
-}
-
-const STORAGE_KEY = 'extra-area-reports';
-
 const ExtraAreaReport: React.FC = () => {
+  const { user } = useAuth();
+  const { 
+    entries, 
+    loading, 
+    addEntry, 
+    updateEntry, 
+    removeEntry, 
+    uploadPhoto, 
+    deletePhoto 
+  } = useExtraAreaStore();
+  
   const [selectedMonth, setSelectedMonth] = React.useState(new Date());
-  const [entries, setEntries] = React.useState<ExtraAreaEntry[]>([]);
-  const [isLoaded, setIsLoaded] = React.useState(false);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editingEntry, setEditingEntry] = React.useState<ExtraAreaEntry | null>(null);
   const [photoGalleryOpen, setPhotoGalleryOpen] = React.useState(false);
   const [selectedEntryPhotos, setSelectedEntryPhotos] = React.useState<ExtraAreaEntry | null>(null);
   const [currentPage, setCurrentPage] = React.useState(1);
+  const [isSaving, setIsSaving] = React.useState(false);
 
   // Form state
   const [formData, setFormData] = React.useState({
@@ -96,39 +91,6 @@ const ExtraAreaReport: React.FC = () => {
   const approvedBossRef = React.useRef<HTMLInputElement>(null);
   const loiRef = React.useRef<HTMLInputElement>(null);
   const msasRef = React.useRef<HTMLInputElement>(null);
-
-  // Load from localStorage on mount (async to avoid blocking)
-  React.useEffect(() => {
-    const loadData = async () => {
-      try {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          // Migrate old entries that don't have sales field
-          const migrated = parsed.map((entry: any) => ({
-            ...entry,
-            date: entry.date || '',
-            noFixtures: typeof entry.noFixtures === 'number' ? entry.noFixtures.toString() : (entry.noFixtures || ''),
-            sales: entry.sales || { MHB: 0, MLP: 0, MSH: 0, MUM: 0 },
-          }));
-          setEntries(migrated);
-        }
-      } catch {
-        // ignore parse errors
-      }
-      setIsLoaded(true);
-    };
-    loadData();
-  }, []);
-
-  // Save to localStorage whenever entries change (debounced)
-  React.useEffect(() => {
-    if (!isLoaded) return;
-    const timeout = setTimeout(() => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [entries, isLoaded]);
 
   const resetForm = () => {
     setFormData({
@@ -174,15 +136,19 @@ const ExtraAreaReport: React.FC = () => {
     setDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Delete this entry?')) {
-      setEntries(entries.filter(e => e.id !== id));
-      toast({ title: 'Entry deleted', description: 'Extra area report removed.' });
+      try {
+        await removeEntry(id);
+        toast({ title: 'Entry deleted', description: 'Extra area report removed.' });
+      } catch (err) {
+        toast({ title: 'Error', description: 'Failed to delete entry.', variant: 'destructive' });
+      }
     }
   };
 
-  const handlePhotoUpload = (type: keyof PhotoGroup, files: FileList | null) => {
-    if (!files) return;
+  const handlePhotoUpload = async (type: keyof PhotoGroup, files: FileList | null) => {
+    if (!files || !user) return;
     
     const currentCount = photos[type].length;
     const remainingSlots = 3 - currentCount;
@@ -194,31 +160,37 @@ const ExtraAreaReport: React.FC = () => {
 
     const filesToProcess = Array.from(files).slice(0, remainingSlots);
     
-    filesToProcess.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const base64 = e.target?.result as string;
+    for (const file of filesToProcess) {
+      try {
+        const url = await uploadPhoto(file, type);
         setPhotos(prev => ({
           ...prev,
-          [type]: [...prev[type], base64],
+          [type]: [...prev[type], url],
         }));
-      };
-      reader.readAsDataURL(file);
-    });
+      } catch (err) {
+        toast({ title: 'Upload failed', description: 'Failed to upload photo.', variant: 'destructive' });
+      }
+    }
   };
 
-  const handleRemovePhoto = (type: keyof PhotoGroup, index: number) => {
+  const handleRemovePhoto = async (type: keyof PhotoGroup, index: number) => {
+    const photoUrl = photos[type][index];
+    if (photoUrl && photoUrl.startsWith('http')) {
+      await deletePhoto(photoUrl);
+    }
     setPhotos(prev => ({
       ...prev,
       [type]: prev[type].filter((_, i) => i !== index),
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.branch || !formData.category || !formData.locationArea) {
       toast({ title: 'Missing required fields', description: 'Please fill in Branch, Category, and Location/Area.', variant: 'destructive' });
       return;
     }
+
+    setIsSaving(true);
 
     const salesData: SalesPerCategory = {
       MHB: parseFloat(formData.salesMHB) || 0,
@@ -227,53 +199,39 @@ const ExtraAreaReport: React.FC = () => {
       MUM: parseFloat(formData.salesMUM) || 0,
     };
 
-    if (editingEntry) {
-      setEntries(entries.map(e => 
-        e.id === editingEntry.id
-          ? {
-              ...e,
-              branch: formData.branch,
-              category: formData.category,
-              locationArea: formData.locationArea,
-              rentalRate: parseFloat(formData.rentalRate) || 0,
-              noFixtures: formData.noFixtures,
-              date: formData.date,
-              noDays: parseInt(formData.noDays) || 0,
-              sales: salesData,
-              photos,
-              remarks: formData.remarks,
-            }
-          : e
-      ));
-      toast({ title: 'Entry updated', description: 'Extra area report has been updated.' });
-    } else {
-      const newEntry: ExtraAreaEntry = {
-        id: Date.now().toString(),
-        branch: formData.branch,
-        category: formData.category,
-        locationArea: formData.locationArea,
-        rentalRate: parseFloat(formData.rentalRate) || 0,
-        noFixtures: formData.noFixtures,
-        date: formData.date,
-        noDays: parseInt(formData.noDays) || 0,
-        sales: salesData,
-        photos,
-        remarks: formData.remarks,
-        createdAt: new Date().toISOString(),
-      };
-      setEntries([...entries, newEntry]);
-      toast({ title: 'Entry added', description: 'New extra area report created.' });
-    }
+    const entryData = {
+      branch: formData.branch,
+      category: formData.category,
+      locationArea: formData.locationArea,
+      rentalRate: parseFloat(formData.rentalRate) || 0,
+      noFixtures: formData.noFixtures,
+      date: formData.date,
+      noDays: parseInt(formData.noDays) || 0,
+      sales: salesData,
+      photos,
+      remarks: formData.remarks,
+    };
 
-    setDialogOpen(false);
-    resetForm();
+    try {
+      if (editingEntry) {
+        await updateEntry(editingEntry.id, entryData);
+        toast({ title: 'Entry updated', description: 'Extra area report has been updated.' });
+      } else {
+        await addEntry(entryData);
+        toast({ title: 'Entry added', description: 'New extra area report created.' });
+      }
+
+      setDialogOpen(false);
+      resetForm();
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to save entry.', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleClearAll = () => {
-    if (window.confirm('Are you sure you want to clear all entries?')) {
-      setEntries([]);
-      toast({ title: 'All entries cleared', description: 'All extra area reports have been removed.' });
-    }
+    toast({ title: 'Not available', description: 'Please delete entries individually.', variant: 'destructive' });
   };
 
   const PhotoUploadSection = ({ 
@@ -351,6 +309,19 @@ const ExtraAreaReport: React.FC = () => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     return entries.slice(start, start + ITEMS_PER_PAGE);
   }, [entries, currentPage]);
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Loading extra area reports...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>

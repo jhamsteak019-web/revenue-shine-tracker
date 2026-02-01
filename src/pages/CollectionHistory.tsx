@@ -29,7 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useSalesStore } from '@/hooks/useSalesStore';
+import { useSales } from '@/contexts/SalesContext';
 import { formatCurrency, formatMonthYear, formatDate } from '@/utils/formatters';
 import { SalesEntry } from '@/types/sales';
 
@@ -54,11 +54,7 @@ interface CategoryBreakdownDialog {
 }
 
 const CollectionHistory: React.FC = () => {
-  const entries = useSalesStore((s) => s.entries);
-  const selectedMonth = useSalesStore((s) => s.selectedMonth);
-  const setSelectedMonth = useSalesStore((s) => s.setSelectedMonth);
-  const removeEntry = useSalesStore((s) => s.removeEntry);
-  const clearAllEntries = useSalesStore((s) => s.clearAllEntries);
+  const { entries, selectedMonth, setSelectedMonth, removeEntry, clearAllEntries, loading } = useSales();
   
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedBranch, setSelectedBranch] = React.useState<string>('all');
