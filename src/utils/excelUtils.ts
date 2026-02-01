@@ -142,14 +142,24 @@ export const importFromExcel = async (file: File, options?: ImportOptions): Prom
       const amount = Number(row['Amount'] || row['amount'] || row['AMOUNT'] || 0);
       const dayValue = row['Date'] || row['date'] || row['DATE'];
 
-      // Parse day number from Date column (can be "1", "2", or "1 (1 MLP NS)")
-      let dayNum = 1;
+      // Parse day number from Date column - MUST be a pure number only
+      // Skip rows where Date has letters or extra text (e.g., "9 (50% ONLY)")
+      let dayNum: number | null = null;
       if (dayValue !== undefined && dayValue !== null && dayValue !== '') {
-        const dayStr = String(dayValue).split(' ')[0];
-        const parsed = parseInt(dayStr, 10);
-        if (!isNaN(parsed) && parsed >= 1 && parsed <= 31) {
-          dayNum = parsed;
+        const dayStr = String(dayValue).trim();
+        
+        // Check if the value is a pure number (no letters, no extra characters)
+        if (/^\d+$/.test(dayStr)) {
+          const parsed = parseInt(dayStr, 10);
+          if (parsed >= 1 && parsed <= 31) {
+            dayNum = parsed;
+          }
         }
+      }
+      
+      // Skip row if Date is not a valid pure number
+      if (dayNum === null) {
+        return; // Skip this row
       }
 
       // Create full date using base month/year + day from Excel
