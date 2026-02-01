@@ -53,24 +53,37 @@ export interface ImportOptions {
 // Allowed categories only: MHB, MLP, MSH, MUM
 const ALLOWED_CATEGORIES = ['MHB', 'MLP', 'MSH', 'MUM'];
 
-// Extract category from product name prefix - only return allowed categories
+// Extract category from product code format: 2025MCLHB5502009-13
+// Position 5 (index 4) = 'M', Position 8-9 (index 7-8) = 'HB' -> Combined = 'MHB'
 const extractCategoryFromProduct = (productName: string): string => {
-  if (!productName) return '';
+  if (!productName || productName.length < 9) return '';
   
-  const upperProduct = productName.toUpperCase();
+  const upperProduct = productName.toUpperCase().replace(/\s/g, '');
   
-  // Only return allowed categories
-  if (upperProduct.startsWith('MHB')) return 'MHB';
-  if (upperProduct.startsWith('MSH')) return 'MSH';
-  if (upperProduct.startsWith('MUM')) return 'MUM';
-  if (upperProduct.startsWith('MLP') || upperProduct.startsWith('MLX')) return 'MLP';
+  // Extract from specific positions: index 4 + index 7-8
+  if (upperProduct.length >= 9) {
+    const char5 = upperProduct.charAt(4);  // Position 5 (M)
+    const char8 = upperProduct.charAt(7);  // Position 8
+    const char9 = upperProduct.charAt(8);  // Position 9
+    
+    const extracted = char5 + char8 + char9;
+    
+    // Check if extracted matches allowed categories
+    if (ALLOWED_CATEGORIES.includes(extracted)) {
+      return extracted;
+    }
+  }
   
-  // For non-matching prefixes, try to find any allowed category in the product name
+  // Fallback: check if product starts with allowed category
+  for (const cat of ALLOWED_CATEGORIES) {
+    if (upperProduct.startsWith(cat)) return cat;
+  }
+  
+  // Fallback: find any allowed category in the product name
   for (const cat of ALLOWED_CATEGORIES) {
     if (upperProduct.includes(cat)) return cat;
   }
   
-  // Default to empty - user will need to categorize manually or it won't show in Collection History
   return '';
 };
 
