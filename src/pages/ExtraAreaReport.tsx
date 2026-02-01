@@ -50,7 +50,7 @@ interface ExtraAreaEntry {
   category: string;
   locationArea: string;
   rentalRate: number;
-  noFixtures: number;
+  noFixtures: string;
   date: string;
   noDays: number;
   sales: SalesPerCategory;
@@ -108,6 +108,7 @@ const ExtraAreaReport: React.FC = () => {
           const migrated = parsed.map((entry: any) => ({
             ...entry,
             date: entry.date || '',
+            noFixtures: typeof entry.noFixtures === 'number' ? entry.noFixtures.toString() : (entry.noFixtures || ''),
             sales: entry.sales || { MHB: 0, MLP: 0, MSH: 0, MUM: 0 },
           }));
           setEntries(migrated);
@@ -235,7 +236,7 @@ const ExtraAreaReport: React.FC = () => {
               category: formData.category,
               locationArea: formData.locationArea,
               rentalRate: parseFloat(formData.rentalRate) || 0,
-              noFixtures: parseInt(formData.noFixtures) || 0,
+              noFixtures: formData.noFixtures,
               date: formData.date,
               noDays: parseInt(formData.noDays) || 0,
               sales: salesData,
@@ -252,7 +253,7 @@ const ExtraAreaReport: React.FC = () => {
         category: formData.category,
         locationArea: formData.locationArea,
         rentalRate: parseFloat(formData.rentalRate) || 0,
-        noFixtures: parseInt(formData.noFixtures) || 0,
+        noFixtures: formData.noFixtures,
         date: formData.date,
         noDays: parseInt(formData.noDays) || 0,
         sales: salesData,
@@ -444,9 +445,9 @@ const ExtraAreaReport: React.FC = () => {
                         <TableCell className="py-5 px-6 text-right font-semibold text-foreground">
                           {formatCurrency(entry.rentalRate)}
                         </TableCell>
-                        <TableCell className="py-5 px-6 text-center">
-                          <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-muted/50 font-semibold text-foreground">
-                            {entry.noFixtures}
+                        <TableCell className="py-5 px-6 text-foreground/80 max-w-[140px]">
+                          <span className="block truncate" title={entry.noFixtures || '—'}>
+                            {entry.noFixtures || '—'}
                           </span>
                         </TableCell>
                         <TableCell className="py-5 px-6 text-center text-sm text-foreground/80">
@@ -608,11 +609,11 @@ const ExtraAreaReport: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="noFixtures">No. Fixtures</Label>
+                <Label htmlFor="noFixtures">Fixtures</Label>
                 <Input
                   id="noFixtures"
-                  type="number"
-                  placeholder="0"
+                  type="text"
+                  placeholder="Enter fixtures used"
                   value={formData.noFixtures}
                   onChange={(e) => setFormData({ ...formData, noFixtures: e.target.value })}
                 />
