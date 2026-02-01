@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,12 +8,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { FileText, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-const Login: React.FC = () => {
+const Signup: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -23,28 +23,52 @@ const Login: React.FC = () => {
     if (!email.trim() || !password.trim()) {
       toast({
         title: "Error",
-        description: "Please enter email and password",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Passwords do not match",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (password.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters",
         variant: "destructive",
       });
       return;
     }
 
     setLoading(true);
-    const { error } = await signIn(email.trim(), password);
+    const { error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: {
+        emailRedirectTo: window.location.origin,
+      },
+    });
     setLoading(false);
 
     if (error) {
       toast({
-        title: "Login Failed",
-        description: error.message || "Invalid email or password",
+        title: "Signup Failed",
+        description: error.message,
         variant: "destructive",
       });
     } else {
       toast({
-        title: "Welcome!",
-        description: "Login successful",
+        title: "Account Created!",
+        description: "Check your email to verify your account",
       });
-      navigate('/');
+      navigate('/login');
     }
   };
 
@@ -56,9 +80,9 @@ const Login: React.FC = () => {
             <FileText className="h-8 w-8 text-white" />
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold">Sales Monitor</CardTitle>
+            <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
             <CardDescription className="text-muted-foreground mt-1">
-              Login to access the tracking system
+              Sign up for a new account
             </CardDescription>
           </div>
         </CardHeader>
@@ -82,11 +106,11 @@ const Login: React.FC = () => {
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter your password"
+                  placeholder="Create a password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
-                  autoComplete="current-password"
+                  autoComplete="new-password"
                   className="pr-10"
                 />
                 <button
@@ -98,24 +122,34 @@ const Login: React.FC = () => {
                 </button>
               </div>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Confirm your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={loading}
+                autoComplete="new-password"
+              />
+            </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
+                  Creating account...
                 </>
               ) : (
-                'Sign In'
+                'Sign Up'
               )}
             </Button>
-            <div className="flex items-center justify-between text-sm">
-              <Link to="/forgot-password" className="text-primary hover:underline">
-                Forgot password?
+            <p className="text-center text-sm text-muted-foreground">
+              Already have an account?{' '}
+              <Link to="/login" className="text-primary hover:underline font-medium">
+                Sign in
               </Link>
-              <Link to="/signup" className="text-primary hover:underline">
-                Create account
-              </Link>
-            </div>
+            </p>
           </form>
         </CardContent>
       </Card>
@@ -123,4 +157,4 @@ const Login: React.FC = () => {
   );
 };
 
-export default Login;
+export default Signup;
