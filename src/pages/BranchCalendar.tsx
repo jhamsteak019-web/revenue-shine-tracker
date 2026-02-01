@@ -365,7 +365,10 @@ const BranchCalendar: React.FC = () => {
                   return (
                     <div
                       key={dateKey}
-                      onClick={() => setSelectedDate(day)}
+                      onClick={() => {
+                        setSelectedDate(day);
+                        handleAddNew(day);
+                      }}
                       className={cn(
                         'min-h-[120px] border-b border-r border-border/30 p-2 cursor-pointer hover:bg-muted/30 transition-colors',
                         !isCurrentMonth && 'bg-muted/20',
