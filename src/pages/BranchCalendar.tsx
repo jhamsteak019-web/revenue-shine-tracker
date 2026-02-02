@@ -205,114 +205,9 @@ const BranchCalendar: React.FC = () => {
       </div>
 
       <div className="flex-1 overflow-auto p-4 lg:p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex gap-6">
-            {/* Left Sidebar - Mini Calendar and Selected Date Info */}
-            <div className="w-72 flex-shrink-0 space-y-4">
-              {/* Mini Calendar */}
-              <div className="bg-card rounded-xl border border-border/50 p-4 shadow-sm">
-                <div className="flex items-center justify-between mb-3">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handlePrevMonth}>
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span className="text-sm font-semibold text-foreground">
-                    {format(selectedMonth, 'MMMM yyyy')}
-                  </span>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleNextMonth}>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="grid grid-cols-7 gap-1 text-center">
-                  {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
-                    <div key={day} className="text-xs text-muted-foreground font-medium py-1">
-                      {day}
-                    </div>
-                  ))}
-                  {calendarDays.map((day) => {
-                    const dateKey = format(day, 'yyyy-MM-dd');
-                    const dayTasks = tasksByDate.get(dateKey) || [];
-                    const hasTasks = dayTasks.length > 0;
-                    const isSelected = selectedDate && isSameDay(day, selectedDate);
-                    const isCurrentMonth = isSameMonth(day, selectedMonth);
-                    
-                    return (
-                      <button
-                        key={dateKey}
-                        onClick={() => setSelectedDate(day)}
-                        className={cn(
-                          'text-xs py-1.5 rounded-md transition-colors relative',
-                          isCurrentMonth ? 'text-foreground' : 'text-muted-foreground/50',
-                          isSelected && 'bg-primary text-primary-foreground',
-                          isToday(day) && !isSelected && 'bg-accent text-accent-foreground font-semibold',
-                          hasTasks && !isSelected && 'bg-primary/20 font-medium',
-                          !isSelected && 'hover:bg-muted'
-                        )}
-                      >
-                        {format(day, 'd')}
-                        {hasTasks && !isSelected && (
-                          <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Selected Date Info */}
-              <div className="bg-card rounded-xl border border-border/50 p-4 shadow-sm">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold text-foreground">
-                    {selectedDate ? format(selectedDate, 'MMMM d, yyyy') : 'Select a date'}
-                  </h3>
-                  {selectedDate && (
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => handleAddNew(selectedDate)}>
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-                {selectedDate ? (
-                  selectedDateTasks.length > 0 ? (
-                    <div className="space-y-2">
-                      {selectedDateTasks.map((task) => (
-                        <div
-                          key={task.id}
-                          className="p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors group"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <div className={cn('inline-block px-2 py-0.5 rounded text-xs font-medium mb-1', getColorClass(task.color))}>
-                                {task.branch}
-                              </div>
-                              <div className="text-sm font-medium text-foreground truncate">
-                                {task.title}
-                              </div>
-                              {task.description && (
-                                <div className="text-xs text-muted-foreground truncate">{task.description}</div>
-                              )}
-                            </div>
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleEdit(task)}>
-                                <Pencil className="h-3 w-3" />
-                              </Button>
-                              <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => handleDelete(task.id)}>
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No tasks on this date</p>
-                  )
-                ) : (
-                  <p className="text-sm text-muted-foreground">Click on a date to see tasks</p>
-                )}
-              </div>
-            </div>
-
-            {/* Main Calendar Grid */}
-            <div className="flex-1 bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden">
+      <div className="max-w-7xl mx-auto">
+          {/* Main Calendar Grid - Full Width */}
+          <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden">
               {/* Calendar Header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-border/50">
                 <h2 className="text-xl font-bold text-foreground">
@@ -414,10 +309,9 @@ const BranchCalendar: React.FC = () => {
                     </div>
                   );
                 })}
-              </div>
-            </div>
           </div>
         </div>
+      </div>
       </div>
 
       {/* Add/Edit Dialog */}
