@@ -334,8 +334,8 @@ const ExtraAreaReport: React.FC = () => {
         pdfElementId="extra-area-content"
       />
 
-      <div id="extra-area-content" className="flex-1 overflow-auto p-4 lg:p-6">
-        <div className="max-w-7xl mx-auto space-y-4">
+      <div id="extra-area-content" className="flex-1 overflow-auto p-4 lg:p-8 xl:p-10">
+        <div className="w-full space-y-6">
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-2">
             <Button size="sm" className="gap-2" onClick={handleAddNew}>
@@ -354,19 +354,19 @@ const ExtraAreaReport: React.FC = () => {
             </Button>
           </div>
 
-          {/* Entries Table - Full Width Expanded Card */}
-          <div className="w-full bg-card rounded-2xl shadow-lg border border-border/50 overflow-hidden">
+          {/* Entries Table - Full Width Expanded Card for Large Screens */}
+          <div className="w-full bg-card rounded-2xl shadow-lg border border-border/50 overflow-hidden min-h-[60vh] xl:min-h-[70vh]">
             {/* Card Header */}
-            <div className="px-8 py-6 border-b border-border/50 bg-gradient-to-r from-muted/30 to-transparent">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-primary/10 rounded-xl">
-                  <MapPin className="h-6 w-6 text-primary" />
+            <div className="px-6 lg:px-10 xl:px-12 py-6 lg:py-8 border-b border-border/50 bg-gradient-to-r from-muted/30 to-transparent">
+              <div className="flex items-center gap-4">
+                <div className="p-3 lg:p-4 bg-primary/10 rounded-xl">
+                  <MapPin className="h-6 w-6 lg:h-8 lg:w-8 text-primary" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-foreground">
+                  <h3 className="text-xl lg:text-2xl xl:text-3xl font-bold text-foreground">
                     Extra Area Reports
                   </h3>
-                  <p className="text-sm text-muted-foreground mt-0.5">
+                  <p className="text-sm lg:text-base text-muted-foreground mt-1">
                     {entries.length} {entries.length === 1 ? 'entry' : 'entries'} recorded
                   </p>
                 </div>
@@ -375,20 +375,20 @@ const ExtraAreaReport: React.FC = () => {
 
             {entries.length > 0 ? (
               <div className="overflow-x-auto">
-                <Table className="w-full">
+                <Table className="w-full table-fixed xl:table-auto">
                   <TableHeader>
                     <TableRow className="bg-muted/40 border-b border-border/50 hover:bg-muted/40">
-                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground">Branch</TableHead>
-                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground">Category</TableHead>
-                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground min-w-[160px]">Location/Area</TableHead>
-                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right">Rental Rate</TableHead>
-                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground text-center">Fixtures</TableHead>
-                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground text-center">Date</TableHead>
-                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground text-center">Days</TableHead>
-                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right min-w-[140px]">Sales (Total)</TableHead>
-                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground text-center min-w-[140px]">Photos</TableHead>
-                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground min-w-[140px]">Remarks</TableHead>
-                      <TableHead className="py-5 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right">Actions</TableHead>
+                      <TableHead className="py-5 lg:py-6 px-4 lg:px-8 text-xs lg:text-sm font-bold uppercase tracking-wider text-muted-foreground w-[100px] lg:w-[120px]">Branch</TableHead>
+                      <TableHead className="py-5 lg:py-6 px-4 lg:px-8 text-xs lg:text-sm font-bold uppercase tracking-wider text-muted-foreground w-[100px] lg:w-[140px]">Category</TableHead>
+                      <TableHead className="py-5 lg:py-6 px-4 lg:px-8 text-xs lg:text-sm font-bold uppercase tracking-wider text-muted-foreground min-w-[180px] lg:min-w-[220px]">Location/Area</TableHead>
+                      <TableHead className="py-5 lg:py-6 px-4 lg:px-8 text-xs lg:text-sm font-bold uppercase tracking-wider text-muted-foreground text-right w-[120px] lg:w-[160px]">Rental Rate</TableHead>
+                      <TableHead className="py-5 lg:py-6 px-4 lg:px-8 text-xs lg:text-sm font-bold uppercase tracking-wider text-muted-foreground w-[120px] lg:w-[160px]">Fixtures</TableHead>
+                      <TableHead className="py-5 lg:py-6 px-4 lg:px-8 text-xs lg:text-sm font-bold uppercase tracking-wider text-muted-foreground text-center w-[120px] lg:w-[140px]">Date</TableHead>
+                      <TableHead className="py-5 lg:py-6 px-4 lg:px-8 text-xs lg:text-sm font-bold uppercase tracking-wider text-muted-foreground text-center w-[80px] lg:w-[100px]">Days</TableHead>
+                      <TableHead className="py-5 lg:py-6 px-4 lg:px-8 text-xs lg:text-sm font-bold uppercase tracking-wider text-muted-foreground text-right min-w-[160px] lg:min-w-[200px]">Sales (Total)</TableHead>
+                      <TableHead className="py-5 lg:py-6 px-4 lg:px-8 text-xs lg:text-sm font-bold uppercase tracking-wider text-muted-foreground text-center w-[120px] lg:w-[160px]">Photos</TableHead>
+                      <TableHead className="py-5 lg:py-6 px-4 lg:px-8 text-xs lg:text-sm font-bold uppercase tracking-wider text-muted-foreground min-w-[160px] lg:min-w-[200px]">Remarks</TableHead>
+                      <TableHead className="py-5 lg:py-6 px-4 lg:px-8 text-xs lg:text-sm font-bold uppercase tracking-wider text-muted-foreground text-right w-[100px] lg:w-[120px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -400,53 +400,53 @@ const ExtraAreaReport: React.FC = () => {
                           index % 2 === 0 ? "bg-background" : "bg-muted/10"
                         )}
                       >
-                        <TableCell className="py-5 px-6 font-semibold text-foreground">
+                        <TableCell className="py-5 lg:py-6 px-4 lg:px-8 font-semibold text-foreground text-sm lg:text-base">
                           {entry.branch}
                         </TableCell>
-                        <TableCell className="py-5 px-6">
-                          <Badge variant="secondary" className="px-3 py-1 text-xs font-medium bg-primary/10 text-primary border-0">
+                        <TableCell className="py-5 lg:py-6 px-4 lg:px-8">
+                          <Badge variant="secondary" className="px-3 py-1.5 text-xs lg:text-sm font-medium bg-primary/10 text-primary border-0">
                             {entry.category}
                           </Badge>
                         </TableCell>
-                        <TableCell className="py-5 px-6 text-foreground/80 max-w-[200px]">
-                          <span className="block truncate" title={entry.locationArea}>
+                        <TableCell className="py-5 lg:py-6 px-4 lg:px-8 text-foreground/80">
+                          <span className="block truncate text-sm lg:text-base" title={entry.locationArea}>
                             {entry.locationArea}
                           </span>
                         </TableCell>
-                        <TableCell className="py-5 px-6 text-right font-semibold text-foreground">
+                        <TableCell className="py-5 lg:py-6 px-4 lg:px-8 text-right font-semibold text-foreground text-sm lg:text-base">
                           {formatCurrency(entry.rentalRate)}
                         </TableCell>
-                        <TableCell className="py-5 px-6 text-foreground/80 max-w-[140px]">
-                          <span className="block truncate" title={entry.noFixtures || '—'}>
+                        <TableCell className="py-5 lg:py-6 px-4 lg:px-8 text-foreground/80">
+                          <span className="block truncate text-sm lg:text-base" title={entry.noFixtures || '—'}>
                             {entry.noFixtures || '—'}
                           </span>
                         </TableCell>
-                        <TableCell className="py-5 px-6 text-center text-sm text-foreground/80">
+                        <TableCell className="py-5 lg:py-6 px-4 lg:px-8 text-center text-sm lg:text-base text-foreground/80">
                           {formatDate(entry.date)}
                         </TableCell>
-                        <TableCell className="py-5 px-6 text-center">
-                          <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-muted/50 font-semibold text-foreground">
+                        <TableCell className="py-5 lg:py-6 px-4 lg:px-8 text-center">
+                          <span className="inline-flex items-center justify-center w-10 h-10 lg:w-12 lg:h-12 rounded-lg bg-muted/50 font-semibold text-foreground text-sm lg:text-base">
                             {entry.noDays}
                           </span>
                         </TableCell>
-                        <TableCell className="py-5 px-6 text-right">
+                        <TableCell className="py-5 lg:py-6 px-4 lg:px-8 text-right">
                           <div className="text-right">
-                            <span className="font-semibold text-foreground block">
+                            <span className="font-semibold text-foreground block text-sm lg:text-base">
                               {formatCurrency(getTotalSales(entry))}
                             </span>
                             {getTotalSales(entry) > 0 && (
-                              <span className="text-xs text-muted-foreground block mt-0.5">
+                              <span className="text-xs lg:text-sm text-muted-foreground block mt-1">
                                 MHB:{formatCurrency(entry.sales?.MHB || 0).replace('₱', '')} | MLP:{formatCurrency(entry.sales?.MLP || 0).replace('₱', '')}
                               </span>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="py-5 px-6">
+                        <TableCell className="py-5 lg:py-6 px-4 lg:px-8">
                           <button 
                             type="button"
                             onClick={() => getTotalPhotos(entry) > 0 && handleViewPhotos(entry)}
                             className={cn(
-                              "flex items-center justify-center gap-1.5",
+                              "flex items-center justify-center gap-2",
                               getTotalPhotos(entry) > 0 && "cursor-pointer hover:opacity-80 transition-opacity"
                             )}
                           >
@@ -455,7 +455,7 @@ const ExtraAreaReport: React.FC = () => {
                                 key={`boss-${i}`} 
                                 src={photo} 
                                 alt="" 
-                                className="w-10 h-10 rounded-lg object-cover border-2 border-background shadow-sm" 
+                                className="w-10 h-10 lg:w-12 lg:h-12 rounded-lg object-cover border-2 border-background shadow-sm" 
                               />
                             ))}
                             {entry.photos.loi.slice(0, 1).map((photo, i) => (
@@ -463,41 +463,41 @@ const ExtraAreaReport: React.FC = () => {
                                 key={`loi-${i}`} 
                                 src={photo} 
                                 alt="" 
-                                className="w-10 h-10 rounded-lg object-cover border-2 border-background shadow-sm" 
+                                className="w-10 h-10 lg:w-12 lg:h-12 rounded-lg object-cover border-2 border-background shadow-sm" 
                               />
                             ))}
                             {getTotalPhotos(entry) > 3 && (
-                              <span className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground">
+                              <span className="w-10 h-10 lg:w-12 lg:h-12 rounded-lg bg-muted flex items-center justify-center text-xs lg:text-sm font-semibold text-muted-foreground">
                                 +{getTotalPhotos(entry) - 3}
                               </span>
                             )}
                             {getTotalPhotos(entry) === 0 && (
-                              <span className="text-sm text-muted-foreground">—</span>
+                              <span className="text-sm lg:text-base text-muted-foreground">—</span>
                             )}
                           </button>
                         </TableCell>
-                        <TableCell className="py-5 px-6 text-muted-foreground max-w-[180px]">
-                          <span className="block truncate" title={entry.remarks || '-'}>
+                        <TableCell className="py-5 lg:py-6 px-4 lg:px-8 text-muted-foreground">
+                          <span className="block truncate text-sm lg:text-base" title={entry.remarks || '-'}>
                             {entry.remarks || '—'}
                           </span>
                         </TableCell>
-                        <TableCell className="py-5 px-6">
-                          <div className="flex items-center justify-end gap-2">
+                        <TableCell className="py-5 lg:py-6 px-4 lg:px-8">
+                          <div className="flex items-center justify-end gap-2 lg:gap-3">
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-9 w-9 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
+                              className="h-9 w-9 lg:h-10 lg:w-10 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
                               onClick={() => handleEdit(entry)}
                             >
-                              <Pencil className="h-4 w-4" />
+                              <Pencil className="h-4 w-4 lg:h-5 lg:w-5" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-9 w-9 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                              className="h-9 w-9 lg:h-10 lg:w-10 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                               onClick={() => handleDelete(entry.id)}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4 lg:h-5 lg:w-5" />
                             </Button>
                           </div>
                         </TableCell>
@@ -513,7 +513,7 @@ const ExtraAreaReport: React.FC = () => {
                     onPageChange={setCurrentPage}
                     totalItems={entries.length}
                     itemsPerPage={ITEMS_PER_PAGE}
-                    className="px-6 border-t border-border/50"
+                    className="px-6 lg:px-10 py-6 border-t border-border/50"
                   />
                 )}
               </div>
