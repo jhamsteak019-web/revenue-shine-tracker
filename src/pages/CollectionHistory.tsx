@@ -111,17 +111,73 @@ const CollectionHistory: React.FC = () => {
     setCurrentPage(1);
   }, [selectedMonth, selectedBranch, selectedCategory, normalizedSearch]);
 
-  // Sort entries by amount (highest to lowest)
-  const sortedEntries = React.useMemo(() => {
-    return [...filteredEntries].sort((a, b) => b.amount - a.amount);
+  // Aggregate entries by item code (UPC) and sort by total qty sold (highest to lowest)
+  const aggregatedItems = React.useMemo(() => {
+    const itemMap = new Map<string, {
+      upc: string;
+      name: string;
+      description: string;
+      category: string;
+      totalQty: number;
+      totalAmount: number;
+      avgPrice: number;
+      avgDiscount: number;
+      branches: { branch: string; qty: number; amount: number }[];
+      entries: SalesEntry[];
+    }>();
+
+    for (const entry of filteredEntries) {
+      const existing = itemMap.get(entry.upc);
+      if (existing) {
+        existing.totalQty += entry.qty;
+        existing.totalAmount += entry.amount;
+        existing.entries.push(entry);
+        
+        // Update branch breakdown
+        const branchEntry = existing.branches.find(b => b.branch === entry.branch);
+        if (branchEntry) {
+          branchEntry.qty += entry.qty;
+          branchEntry.amount += entry.amount;
+        } else {
+          existing.branches.push({ branch: entry.branch, qty: entry.qty, amount: entry.amount });
+        }
+      } else {
+        itemMap.set(entry.upc, {
+          upc: entry.upc,
+          name: entry.name,
+          description: entry.description,
+          category: entry.category,
+          totalQty: entry.qty,
+          totalAmount: entry.amount,
+          avgPrice: entry.price,
+          avgDiscount: entry.discountPercent,
+          branches: [{ branch: entry.branch, qty: entry.qty, amount: entry.amount }],
+          entries: [entry],
+        });
+      }
+    }
+
+    // Calculate averages and sort branches
+    return Array.from(itemMap.values())
+      .map(item => {
+        const totalPrice = item.entries.reduce((sum, e) => sum + (e.price * e.qty), 0);
+        const totalDiscount = item.entries.reduce((sum, e) => sum + e.discountPercent, 0);
+        return {
+          ...item,
+          avgPrice: item.totalQty > 0 ? totalPrice / item.totalQty : 0,
+          avgDiscount: item.entries.length > 0 ? totalDiscount / item.entries.length : 0,
+          branches: item.branches.sort((a, b) => b.qty - a.qty), // Sort branches by qty
+        };
+      })
+      .sort((a, b) => b.totalQty - a.totalQty); // Sort by total qty sold (highest to lowest)
   }, [filteredEntries]);
 
-  // Pagination
-  const totalPages = Math.ceil(sortedEntries.length / ITEMS_PER_PAGE);
-  const paginatedEntries = React.useMemo(() => {
+  // Pagination for aggregated items
+  const totalPages = Math.ceil(aggregatedItems.length / ITEMS_PER_PAGE);
+  const paginatedItems = React.useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return sortedEntries.slice(start, start + ITEMS_PER_PAGE);
-  }, [sortedEntries, currentPage]);
+    return aggregatedItems.slice(start, start + ITEMS_PER_PAGE);
+  }, [aggregatedItems, currentPage]);
 
   // Calculate totals efficiently
   const kpis = React.useMemo(() => {
@@ -374,18 +430,18 @@ const CollectionHistory: React.FC = () => {
                 </Table>
               </div>
 
-              {/* Sold Items List - Sorted by highest amount */}
+              {/* Sold Items List - Grouped by item, sorted by total qty sold */}
               <div className="bg-card rounded-xl card-shadow overflow-hidden animate-fade-in">
                 <div className="p-5 border-b border-border flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Package className="h-5 w-5 text-foreground" />
                     <h2 className="text-lg font-semibold text-foreground">
-                      Sold Items - {formatMonthYear(selectedMonth)}
+                      Top Selling Items - {formatMonthYear(selectedMonth)}
                     </h2>
-                    <Badge variant="secondary">{sortedEntries.length} items</Badge>
-                    <Badge variant="outline" className="text-xs">Highest to Lowest</Badge>
+                    <Badge variant="secondary">{aggregatedItems.length} items</Badge>
+                    <Badge variant="outline" className="text-xs">By Qty Sold (High → Low)</Badge>
                   </div>
-                  {sortedEntries.length > 0 && (
+                  {aggregatedItems.length > 0 && (
                     <Button 
                       variant="destructive" 
                       size="sm"
@@ -397,71 +453,83 @@ const CollectionHistory: React.FC = () => {
                     </Button>
                   )}
                 </div>
-                <div className="max-h-[500px] overflow-auto">
+                <div className="max-h-[600px] overflow-auto">
                   <Table>
                     <TableHeader>
                       <TableRow className="table-header border-0">
                         <TableHead className="w-[50px]">#</TableHead>
-                        <TableHead>Date</TableHead>
                         <TableHead>Code</TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>Category</TableHead>
-                        <TableHead>Branch</TableHead>
-                        <TableHead className="text-center">Qty</TableHead>
-                        <TableHead className="text-right">Price</TableHead>
-                        <TableHead className="text-center">Discount %</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                        <TableHead className="w-[50px]"></TableHead>
+                        <TableHead className="text-center">Total Sold</TableHead>
+                        <TableHead>Branches</TableHead>
+                        <TableHead className="text-right">Avg Price</TableHead>
+                        <TableHead className="text-right">Total Amount</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {paginatedEntries.map((entry, index) => {
+                      {paginatedItems.map((item, index) => {
                         const globalIndex = (currentPage - 1) * ITEMS_PER_PAGE + index;
                         return (
-                          <TableRow key={entry.id} className="table-row">
+                          <TableRow key={item.upc} className="table-row">
                             <TableCell>
                               {globalIndex === 0 ? (
-                                <div className="w-6 h-6 rounded-full bg-warning flex items-center justify-center">
-                                  <span className="text-warning-foreground text-xs font-bold">1</span>
+                                <div className="w-7 h-7 rounded-full bg-warning flex items-center justify-center">
+                                  <Award className="h-4 w-4 text-warning-foreground" />
+                                </div>
+                              ) : globalIndex === 1 ? (
+                                <div className="w-6 h-6 rounded-full bg-muted-foreground/30 flex items-center justify-center">
+                                  <span className="text-foreground text-xs font-bold">2</span>
+                                </div>
+                              ) : globalIndex === 2 ? (
+                                <div className="w-6 h-6 rounded-full bg-orange-400/30 flex items-center justify-center">
+                                  <span className="text-foreground text-xs font-bold">3</span>
                                 </div>
                               ) : (
                                 <span className="text-sm text-muted-foreground">{globalIndex + 1}</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-sm">
-                              {formatDate(entry.date)}
+                            <TableCell className="text-sm font-medium font-mono">
+                              {item.upc}
                             </TableCell>
-                            <TableCell className="text-sm font-medium">
-                              {entry.name}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">
-                              {entry.description || '-'}
+                            <TableCell>
+                              <div>
+                                <div className="text-sm font-medium">{item.name}</div>
+                                {item.description && (
+                                  <div className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                    {item.description}
+                                  </div>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell>
                               <Badge variant="outline" className="font-medium">
-                                {entry.category}
+                                {item.category}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-sm">{entry.branch}</TableCell>
-                            <TableCell className="text-center text-sm">{entry.qty}</TableCell>
-                            <TableCell className="text-right text-sm">
-                              {formatCurrency(entry.price)}
+                            <TableCell className="text-center">
+                              <span className="text-lg font-bold text-primary">{item.totalQty}</span>
+                              <span className="text-xs text-muted-foreground ml-1">pcs</span>
                             </TableCell>
-                            <TableCell className="text-center text-sm">
-                              {entry.discountPercent}%
+                            <TableCell>
+                              <div className="flex flex-wrap gap-1">
+                                {item.branches.map((b) => (
+                                  <Badge 
+                                    key={b.branch} 
+                                    variant="secondary" 
+                                    className="text-xs"
+                                    title={`${b.branch}: ${b.qty} pcs - ${formatCurrency(b.amount)}`}
+                                  >
+                                    {b.branch}: {b.qty}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right text-sm">
+                              {formatCurrency(item.avgPrice)}
                             </TableCell>
                             <TableCell className="text-right font-semibold text-primary">
-                              {formatCurrency(entry.amount)}
-                            </TableCell>
-                            <TableCell className="w-[50px]">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                onClick={() => handleDeleteEntry(entry.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              {formatCurrency(item.totalAmount)}
                             </TableCell>
                           </TableRow>
                         );
@@ -475,7 +543,7 @@ const CollectionHistory: React.FC = () => {
                     currentPage={currentPage}
                     totalPages={totalPages}
                     onPageChange={setCurrentPage}
-                    totalItems={sortedEntries.length}
+                    totalItems={aggregatedItems.length}
                     itemsPerPage={ITEMS_PER_PAGE}
                     className="px-5 border-t border-border"
                   />
